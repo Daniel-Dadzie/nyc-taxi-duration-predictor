@@ -1,0 +1,14 @@
+# Cloud Scheduler job — triggers retraining on a schedule
+# Create with: gcloud scheduler jobs create http retrain-group-a1 --schedule="0 0 * * 0" ...
+#
+# Alternatively create via the console:
+# Cloud Scheduler → Create job
+# Schedule: 0 0 * * 0  (every Sunday at midnight UTC)
+# Target: HTTP
+# URL: [your Cloud Run Job URL for train.py]
+# Method: POST
+
+name: retrain-group-a1
+schedule: "0 0 * * 0"
+timeZone: "UTC"
+description: "Weekly retraining trigger for group-a1 — Taxi Trip Duration Predictor"

@@ -1,0 +1,9 @@
+# Never commit these
+*.json
+service-account*.json
+credentials*.json
+.env
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+*.tfvars

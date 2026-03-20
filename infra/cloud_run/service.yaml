@@ -1,0 +1,29 @@
+# Cloud Run service definition for the ML team's prediction API
+# Deploy with: gcloud run services replace infra/cloud_run/service.yaml
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prediction-api-group-a1
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+    spec:
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/REPO_NAME/prediction-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MLFLOW_TRACKING_URI
+              value: "REPLACE_WITH_MLFLOW_URL"
+            - name: MODEL_REGISTRY_NAME
+              value: "group-a1-model"
+          resources:
+            limits:
+              cpu: "2"
+              memory: "2Gi"
