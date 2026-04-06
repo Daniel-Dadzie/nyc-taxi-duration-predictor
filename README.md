@@ -114,3 +114,86 @@ group-a1/
 - Experiment: `project-a-group-a1`
 - Registry: `group-a1-model`
 - Visibility: **private until Week 5 checkpoint**
+
+
+
+
+
+## Sprint 1 — ML Problem Definition (Group A1)
+
+### 🎯 Objective
+Predict taxi trip duration using trip data.
+
+---
+
+### 🔹 Target Variable
+- `trip_duration`
+- Type: Regression
+- Meaning: duration of a taxi trip in seconds
+
+---
+
+### 📏 Evaluation Metric
+- Primary metric: RMSE (Root Mean Squared Error)
+- Goal: minimize prediction error in seconds
+- Note: RMSE penalizes large errors more heavily
+
+---
+
+### 🤖 Baseline Model Strategy
+
+#### Stage 1 — Simple baseline
+- Model: Linear Regression
+- Purpose: quick sanity check and initial RMSE
+
+#### Stage 2 — Practical baseline
+- Model: RandomForestRegressor
+- Purpose: capture non-linear relationships and improve performance
+
+---
+
+### 📊 Initial Feature Plan
+
+#### Raw Features
+- passenger_count
+- pickup_longitude
+- pickup_latitude
+- dropoff_longitude
+- dropoff_latitude
+- vendor_id
+- store_and_fwd_flag
+
+#### Engineered Features
+- pickup_hour (from pickup_datetime)
+- pickup_day_of_week (from pickup_datetime)
+
+#### Planned (Next Sprint)
+- trip_distance (computed from coordinates)
+
+---
+
+### ⚠️ Exclusions
+- `dropoff_datetime` — excluded due to data leakage (not available at prediction time)
+- `id` — not useful for prediction
+
+---
+
+### ⚠️ Data Observations
+- Extreme outliers detected in `trip_duration` (max ≈ 3.5M seconds)
+- These will be handled during preprocessing in later sprints
+
+---
+
+### 🧠 Key Modeling Insight
+Trip duration is primarily influenced by:
+- distance between pickup and dropoff
+- traffic patterns (time of day, day of week)
+- geographic location
+
+---
+
+### 📌 Next Steps (Sprint 2)
+- Implement `features.py`
+- Train baseline models
+- Integrate MLflow logging
+- Begin API development
