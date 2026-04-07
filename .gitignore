@@ -27,3 +27,8 @@ Thumbs.db
 secrets.json
 credentials.json
 service-account*.json
+
+
+# Dataset
+train.csv
+test.csv
