@@ -117,6 +117,7 @@ Predicts NYC taxi trip duration given pickup and dropoff details.
   "dropoff_longitude": -73.964630,
   "dropoff_latitude": 40.765602,
   "passenger_count": 1,
+  "vendor_id": 1,
   "pickup_datetime": "2016-06-12 00:43:35"
 }
 ```
@@ -134,11 +135,12 @@ Predicts NYC taxi trip duration given pickup and dropoff details.
 - `pickup_longitude` and `dropoff_longitude`: must be between -74.25 and -73.70
 - `pickup_latitude` and `dropoff_latitude`: must be between 40.49 and 40.92
 - `passenger_count`: must be between 1 and 6
+- `vendor_id`: must be either 1 or 2
 - `pickup_datetime`: format must be "YYYY-MM-DD HH:MM:SS"
 
 **Error responses:**
-- `422` — Invalid input (coordinates out of bounds, invalid passenger count)
-- `500` — Prediction error
+- `422` — Invalid input (coordinates out of bounds, invalid passenger count, invalid vendor_id, or invalid pickup_datetime format)
+- `500` — Internal prediction error (generic response)
 - `503` — Model not loaded
 
 ---
@@ -223,31 +225,3 @@ Hot-swaps to the latest Production model without container restart.
 - [x] Model trained and promoted to Production
 - [x] API deployed and tested locally
 - [x] API contract implemented and validated
-
-## Environment Variables
-
-| Variable | Description | Set by |
-|----------|-------------|--------|
-| `MLFLOW_TRACKING_URI` | MLflow server URL | Cloud team |
-| `MLFLOW_EXPERIMENT_NAME` | Agreed experiment name | Both |
-| `MODEL_REGISTRY_NAME` | Agreed registry name | Both |
-| `DATA_PATH` | Path or URL to training data | Cloud team |
-
----
-
-## Week 1 Checklist
-
-- [ ] All group members have repo access
-- [ ] API contract fields filled in and agreed
-- [ ] MLflow experiment name agreed: ``
-- [ ] MLflow server URL received from Cloud team: ``
-- [ ] EDA notebook started
-- [ ] known_issues.md created
-
----
-
-## MLflow Naming Convention
-
-- Experiment: `project-a-group-a1`
-- Registry: `group-a1-model`
-- Visibility: **private until Week 5 checkpoint**

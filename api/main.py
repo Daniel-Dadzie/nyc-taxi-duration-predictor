@@ -6,13 +6,17 @@ All four required endpoints are stubbed below.
 """
 
 import os
+import logging
+import threading
+import uuid
+from datetime import datetime
+
 import numpy as np
 import mlflow
 import mlflow.sklearn
 from mlflow import MlflowClient
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, field_validator
-import threading
 
 # ── Config ────────────────────────────────────────────────────────
 MLFLOW_TRACKING_URI = os.environ["MLFLOW_TRACKING_URI"]
@@ -21,6 +25,7 @@ MODEL_REGISTRY_NAME = os.environ.get("MODEL_REGISTRY_NAME", "group-a1-model")
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 app = FastAPI(title="Group A1 — Taxi Trip Duration Predictor")
+logger = logging.getLogger(__name__)
 
 # ── Model state ───────────────────────────────────────────────────
 model_lock = threading.Lock()
@@ -65,7 +70,8 @@ class PredictRequest(BaseModel):
     dropoff_longitude: float
     dropoff_latitude: float
     passenger_count: int
-    pickup_datetime: str  # format: "2016-06-12 00:43:35"
+    vendor_id: int
+    pickup_datetime: datetime
 
     @field_validator("pickup_longitude", "dropoff_longitude")
     @classmethod
@@ -88,6 +94,29 @@ class PredictRequest(BaseModel):
             raise ValueError("Passenger count must be between 1 and 6")
         return v
 
+    @field_validator("vendor_id")
+    @classmethod
+    def validate_vendor_id(cls, v):
+        if v not in (1, 2):
+            raise ValueError("vendor_id must be either 1 or 2")
+        return v
+
+    @field_validator("pickup_datetime", mode="before")
+    @classmethod
+    def validate_pickup_datetime(cls, v):
+        if isinstance(v, datetime):
+            return v
+        if not isinstance(v, str):
+            raise ValueError(
+                'pickup_datetime must be a string in "YYYY-MM-DD HH:MM:SS" format'
+            )
+        try:
+            return datetime.strptime(v, "%Y-%m-%d %H:%M:%S")
+        except ValueError as exc:
+            raise ValueError(
+                'pickup_datetime must match format "YYYY-MM-DD HH:MM:SS"'
+            ) from exc
+
 
 class PredictResponse(BaseModel):
     model_config = {"protected_namespaces": ()}
@@ -99,8 +128,16 @@ class PredictResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 
-@app.post("/predict", response_model=PredictResponse)
-def predict(request: PredictRequest):
+@app.post(
+    "/predict",
+    response_model=PredictResponse,
+    responses={
+        422: {"description": "Invalid input"},
+        500: {"description": "Internal prediction error"},
+        503: {"description": "Model not loaded"},
+    },
+)
+def predict(payload: PredictRequest, http_request: Request):
     """Main prediction endpoint."""
     import pandas as pd
     from src.features import clean, engineer, get_feature_columns
@@ -117,13 +154,13 @@ def predict(request: PredictRequest):
         df = pd.DataFrame(
             [
                 {
-                    "pickup_longitude": request.pickup_longitude,
-                    "pickup_latitude": request.pickup_latitude,
-                    "dropoff_longitude": request.dropoff_longitude,
-                    "dropoff_latitude": request.dropoff_latitude,
-                    "passenger_count": request.passenger_count,
-                    "pickup_datetime": pd.to_datetime(request.pickup_datetime),
-                    "vendor_id": 1,  # default
+                    "pickup_longitude": payload.pickup_longitude,
+                    "pickup_latitude": payload.pickup_latitude,
+                    "dropoff_longitude": payload.dropoff_longitude,
+                    "dropoff_latitude": payload.dropoff_latitude,
+                    "passenger_count": payload.passenger_count,
+                    "pickup_datetime": payload.pickup_datetime,
+                    "vendor_id": payload.vendor_id,
                 }
             ]
         )
@@ -152,8 +189,16 @@ def predict(request: PredictRequest):
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+    except Exception:
+        correlation_id = (
+            http_request.headers.get("x-correlation-id")
+            or http_request.headers.get("x-request-id")
+            or str(uuid.uuid4())
+        )
+        logger.exception("Prediction error | correlation_id=%s", correlation_id)
+        raise HTTPException(
+            status_code=500, detail="Prediction failed. Please try again later."
+        )
 
 
 @app.get("/health")
@@ -167,12 +212,12 @@ def model_info():
     with model_lock:
         metrics = model_state["metrics"]
         return {
-            "model_name":           MODEL_REGISTRY_NAME,
-            "version":              model_state["version"],
-            "stage":                model_state["stage"],
-            "trained_at":           model_state["trained_at"],
-            "primary_metric":       "RMSE",
-            "primary_metric_value": metrics.get("primary_metric", None)
+            "model_name": MODEL_REGISTRY_NAME,
+            "version": model_state["version"],
+            "stage": model_state["stage"],
+            "trained_at": model_state["trained_at"],
+            "primary_metric": "RMSE",
+            "primary_metric_value": metrics.get("primary_metric", None),
         }
 
 
