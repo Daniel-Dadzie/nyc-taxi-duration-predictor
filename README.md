@@ -49,43 +49,180 @@ group-a1/
 
 ---
 
+## Quick Start
+
+### 1. Setup environment
+```bash
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# Mac/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. Set environment variables
+```bash
+# Windows
+set MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+set MLFLOW_EXPERIMENT_NAME=project-a-group-a1
+set MODEL_REGISTRY_NAME=group-a1-model
+set DATA_PATH=./train.csv
+
+# Mac/Linux
+export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+export MLFLOW_EXPERIMENT_NAME=project-a-group-a1
+export MODEL_REGISTRY_NAME=group-a1-model
+export DATA_PATH=./train.csv
+```
+
+### 3. Start MLflow server
+```bash
+python -m mlflow server --host 127.0.0.1 --port 5000
+```
+
+### 4. Train the model
+```bash
+python train.py
+```
+
+### 5. Start the API
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### 6. Test the API
+Open your browser and go to:
+http://127.0.0.1:8000/docs
+
+
+---
+
 ## API Contract
 
 > **Status: DRAFT — must be finalised and signed by both ML and Cloud leads by end of Week 1**
+---
 
 ### POST /predict
+Predicts NYC taxi trip duration given pickup and dropoff details.
+
 **Input:**
 ```json
-{}
-```
-**Output:**
-```json
-{}
+{
+  "pickup_longitude": -73.982155,
+  "pickup_latitude": 40.767937,
+  "dropoff_longitude": -73.964630,
+  "dropoff_latitude": 40.765602,
+  "passenger_count": 1,
+  "pickup_datetime": "2016-06-12 00:43:35"
+}
 ```
 
+**Output:**
+```json
+{
+  "trip_duration_seconds": 671.49,
+  "trip_duration_minutes": 11.19,
+  "model_version": "6"
+}
+```
+
+**Validation rules:**
+- `pickup_longitude` and `dropoff_longitude`: must be between -74.25 and -73.70
+- `pickup_latitude` and `dropoff_latitude`: must be between 40.49 and 40.92
+- `passenger_count`: must be between 1 and 6
+- `pickup_datetime`: format must be "YYYY-MM-DD HH:MM:SS"
+
+**Error responses:**
+- `422` — Invalid input (coordinates out of bounds, invalid passenger count)
+- `500` — Prediction error
+- `503` — Model not loaded
+
+---
+
 ### GET /health
+Health check endpoint. Must respond in under 100ms.
+
+**Output:**
 ```json
 { "status": "ok" }
 ```
 
+---
+
 ### GET /model-info
+Returns current Production model metadata.
+
+**Output:**
 ```json
 {
-  "model_name": "",
-  "version": "",
+  "model_name": "group-a1-model",
+  "version": "6",
   "stage": "Production",
-  "trained_at": "",
+  "trained_at": 1775438057855,
   "primary_metric": "RMSE",
-  "primary_metric_value": 0.0
+  "primary_metric_value": 282.47
 }
 ```
 
+---
+
 ### POST /reload-model
+Hot-swaps to the latest Production model without container restart.
+
+**Output:**
 ```json
-{ "status": "reloading", "new_version": "" }
+{ "status": "reloading" }
 ```
 
 ---
+
+## Model Performance
+
+| Version | RMSE (seconds) | RMSLE | Notes |
+|---------|---------------|-------|-------|
+| v1 | 297.82 | 0.344 | Baseline XGBoost |
+| v3 | 288.81 | 0.332 | Better hyperparameters |
+| v4 | 284.33 | 0.326 | More features added |
+| v6 | 282.47 | 0.305 | Best — log target + 2000 estimators |
+
+**Current Production model:** version 6 — RMSE 282.47 seconds (~4.7 minutes average error)
+
+---
+
+## Environment Variables
+
+| Variable | Description | Set by |
+|----------|-------------|--------|
+| `MLFLOW_TRACKING_URI` | MLflow server URL | Cloud team |
+| `MLFLOW_EXPERIMENT_NAME` | Agreed experiment name | Both |
+| `MODEL_REGISTRY_NAME` | Agreed registry name | Both |
+| `DATA_PATH` | Path or URL to training data | Cloud team |
+
+---
+
+## MLflow Naming Convention
+
+- Experiment: `project-a-group-a1`
+- Registry: `group-a1-model`
+- Visibility: **private until Week 5 checkpoint**
+
+---
+
+## Week 1 Checklist
+
+- [x] All group members have repo access
+- [x] API contract fields filled in and agreed
+- [x] MLflow experiment name agreed: `project-a-group-a1`
+- [x] MLflow server URL received from Cloud team
+- [x] EDA notebook started
+- [x] known_issues.md created
+- [x] Model trained and promoted to Production
+- [x] API deployed and tested locally
+- [x] API contract implemented and validated
 
 ## Environment Variables
 

@@ -164,14 +164,15 @@ def health():
 
 @app.get("/model-info")
 def model_info():
-    """Return current Production model metadata."""
     with model_lock:
+        metrics = model_state["metrics"]
         return {
-            "model_name": MODEL_REGISTRY_NAME,
-            "version": model_state["version"],
-            "stage": model_state["stage"],
-            "trained_at": model_state["trained_at"],
-            "metrics": model_state["metrics"],
+            "model_name":           MODEL_REGISTRY_NAME,
+            "version":              model_state["version"],
+            "stage":                model_state["stage"],
+            "trained_at":           model_state["trained_at"],
+            "primary_metric":       "RMSE",
+            "primary_metric_value": metrics.get("primary_metric", None)
         }
 
 
