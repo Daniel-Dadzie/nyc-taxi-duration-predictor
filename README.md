@@ -109,6 +109,11 @@ http://127.0.0.1:8000/docs
 ### POST /predict
 Predicts NYC taxi trip duration given pickup and dropoff details.
 
+⚠️ **IMPORTANT**: `vendor_id` is a required input that significantly impacts predictions.
+- **vendor_id = 1**: Yellow Cab (primarily Manhattan, shorter trips)  
+- **vendor_id = 2**: Green Cab / Boro Taxi (outer boroughs, longer trips)  
+- **Providing incorrect vendor_id can skew predictions by 10-15%**
+
 **Input:**
 ```json
 {
@@ -135,13 +140,71 @@ Predicts NYC taxi trip duration given pickup and dropoff details.
 - `pickup_longitude` and `dropoff_longitude`: must be between -74.25 and -73.70
 - `pickup_latitude` and `dropoff_latitude`: must be between 40.49 and 40.92
 - `passenger_count`: must be between 1 and 6
-- `vendor_id`: must be either 1 or 2
-- `pickup_datetime`: format must be "YYYY-MM-DD HH:MM:SS"
+- `vendor_id` (**REQUIRED**): must be either 1 (Yellow Cab) or 2 (Green Cab/Boro Taxi)
+- `pickup_datetime` (**REQUIRED**): must be in exact format `"YYYY-MM-DD HH:MM:SS"` (strict validation; other formats return 422)
 
 **Error responses:**
 - `422` — Invalid input (coordinates out of bounds, invalid passenger count, invalid vendor_id, or invalid pickup_datetime format)
 - `500` — Internal prediction error (generic response)
 - `503` — Model not loaded
+
+**Example error responses:**
+
+Invalid vendor_id:
+```json
+{
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": ["body", "vendor_id"],
+      "msg": "Value error, vendor_id must be either 1 or 2",
+      "input": 3
+    }
+  ]
+}
+```
+
+Invalid pickup_datetime format:
+```json
+{
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": ["body", "pickup_datetime"],
+      "msg": "Value error, pickup_datetime must be in \"YYYY-MM-DD HH:MM:SS\" format (received: '2016/06/12 00:43:35')",
+      "input": "2016/06/12 00:43:35"
+    }
+  ]
+}
+```
+
+Coordinates out of NYC bounds:
+```json
+{
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": ["body", "pickup_longitude"],
+      "msg": "Value error, Longitude must be within NYC bounds (-74.25 to -73.70)",
+      "input": -75.0
+    }
+  ]
+}
+```
+
+Invalid passenger count:
+```json
+{
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": ["body", "passenger_count"],
+      "msg": "Value error, Passenger count must be between 1 and 6",
+      "input": 0
+    }
+  ]
+}
+```
 
 ---
 

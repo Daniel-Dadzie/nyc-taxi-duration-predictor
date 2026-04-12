@@ -46,6 +46,12 @@ Both ML and Cloud team members should contribute to this file.
 - **Evaluation metric**: RMSE chosen as primary metric because it penalizes 
   large errors more heavily, which matters for trip planning.
 
+- **Vendor-specific patterns**: The model includes `vendor_id` as a feature because:
+  - **Yellow Cab (vendor_id=1)**: Operates primarily in Manhattan, shorter trips, higher density
+  - **Green Cab (vendor_id=2)**: Boro Taxi licensed for outer boroughs, longer average trips
+  - Vendor differences are significant — providing wrong vendor_id in inference will produce 
+    inaccurate predictions. This is an **undocumented implicit input** if not clearly validated.
+
 ## Open Questions
 
 - Would adding external weather data improve RMSE significantly?

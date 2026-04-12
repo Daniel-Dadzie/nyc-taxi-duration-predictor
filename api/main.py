@@ -104,6 +104,10 @@ class PredictRequest(BaseModel):
     @field_validator("pickup_datetime", mode="before")
     @classmethod
     def validate_pickup_datetime(cls, v):
+        """
+        Parse and validate pickup_datetime in strict "YYYY-MM-DD HH:MM:SS" format.
+        Ensures invalid timestamps return 422 validation error, not 500.
+        """
         if isinstance(v, datetime):
             return v
         if not isinstance(v, str):
@@ -114,7 +118,9 @@ class PredictRequest(BaseModel):
             return datetime.strptime(v, "%Y-%m-%d %H:%M:%S")
         except ValueError as exc:
             raise ValueError(
-                'pickup_datetime must match format "YYYY-MM-DD HH:MM:SS"'
+                'pickup_datetime must be in "YYYY-MM-DD HH:MM:SS" format (received: {!r})'.format(
+                    v
+                )
             ) from exc
 
 

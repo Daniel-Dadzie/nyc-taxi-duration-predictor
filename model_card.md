@@ -54,7 +54,11 @@ All feature logic lives in `src/features.py`.
 - `going_north`, `going_east`
 
 **Other:**
-- `passenger_count`, `vendor_id`
+- `passenger_count` — Number of passengers in the trip (1-6)
+- `vendor_id` — **REQUIRED: must be 1 (Yellow Cab) or 2 (Green Cab/Boro Taxi)**
+  - Captures vendor-specific differences in service area, pricing, and operational patterns
+  - Different vendors have significantly different trip duration distributions
+  - **Providing incorrect vendor_id can skew predictions by 10-15%**
 
 ## Performance
 
@@ -70,6 +74,10 @@ Registry name: group-a1-model
 Stage: Production
 
 ## Known Limitations
+- **Vendor-specific predictions**: Model performance varies significantly by vendor.
+  - Yellow Cab (vendor_id=1): Primarily Manhattan-based, shorter average trips
+  - Green Cab (vendor_id=2): Boro Taxi, covers outer boroughs, longer average trips
+  - **Providing wrong vendor_id will produce inaccurate predictions; always validate vendor_id in requests**
 - Model is trained on 2016 data only — may not generalize to current 
   traffic patterns, new roads, or post-COVID behavior changes.
 - Coordinates must be within NYC bounding box — trips starting or 
@@ -100,9 +108,13 @@ curl -X POST http://127.0.0.1:8000/predict \
     "dropoff_longitude": -73.964630,
     "dropoff_latitude": 40.765602,
     "passenger_count": 1,
+    "vendor_id": 1,
     "pickup_datetime": "2016-06-12 00:43:35"
   }'
 ```
+
+**Note**: `pickup_datetime` must be in exact format `"YYYY-MM-DD HH:MM:SS"` (strict validation). 
+Invalid formats (e.g., ISO8601, "2016/06/12") will return HTTP 422.
 
 Expected response:
 ```json
@@ -110,6 +122,46 @@ Expected response:
   "trip_duration_seconds": 671.49,
   "trip_duration_minutes": 11.19,
   "model_version": "6"
+}
+```
+
+## API Request Validation & Error Handling
+
+All 7 input fields are **validated before prediction** to catch errors early and return meaningful HTTP 422 responses:
+
+| Field | Validation Rule | Error if Invalid |
+|-------|-----------------|------------------|
+| `pickup_longitude` | -74.25 to -73.70 | `"Longitude must be within NYC bounds (-74.25 to -73.70)"` |
+| `pickup_latitude` | 40.49 to 40.92 | `"Latitude must be within NYC bounds (40.49 to 40.92)"` |
+| `dropoff_longitude` | -74.25 to -73.70 | `"Longitude must be within NYC bounds (-74.25 to -73.70)"` |
+| `dropoff_latitude` | 40.49 to 40.92 | `"Latitude must be within NYC bounds (40.49 to 40.92)"` |
+| `passenger_count` | 1 to 6 | `"Passenger count must be between 1 and 6"` |
+| `vendor_id` | 1 or 2 | `"vendor_id must be either 1 or 2"` |
+| `pickup_datetime` | Exact format `YYYY-MM-DD HH:MM:SS` | `"pickup_datetime must be in \"YYYY-MM-DD HH:MM:SS\" format (received: ...)"` |
+
+**HTTP Status Codes:**
+- **200**: Prediction successful
+- **422**: Validation error (invalid input — see error message for details)
+- **500**: Internal server error (prediction processing failed)
+- **503**: Model not loaded from MLflow registry
+
+**Error Response Format:**
+Invalid requests return HTTP 422 with Pydantic validation details. Each error includes:
+- `loc`: The field path where error occurred (e.g., `["body", "vendor_id"]`)
+- `msg`: Human-readable error message with specific reason
+- `input`: The invalid value received
+
+Example: Invalid vendor_id returns:
+```json
+{
+  "detail": [
+    {
+      "type": "value_error",
+      "loc": ["body", "vendor_id"],
+      "msg": "Value error, vendor_id must be either 1 or 2",
+      "input": 3
+    }
+  ]
 }
 ```
 

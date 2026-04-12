@@ -30,10 +30,10 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     # Remove impossible coordinates (NYC bounding box)
     df = df[
-        (df["pickup_longitude"].between(-74.25, -73.70)) &
-        (df["pickup_latitude"].between(40.49, 40.92)) &
-        (df["dropoff_longitude"].between(-74.25, -73.70)) &
-        (df["dropoff_latitude"].between(40.49, 40.92))
+        (df["pickup_longitude"].between(-74.25, -73.70))
+        & (df["pickup_latitude"].between(40.49, 40.92))
+        & (df["dropoff_longitude"].between(-74.25, -73.70))
+        & (df["dropoff_latitude"].between(40.49, 40.92))
     ]
 
     # Convert datetime columns
@@ -109,11 +109,7 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
         & (df["dropoff_longitude"].between(-73.80, -73.77))
     ).astype(int)
 
-    # Speed proxy (distance per unit)
-    df["dist_per_lat"] = df["distance_km"] / (df["lat_diff"].abs() + 1e-5)
-
-    # ── NEW FEATURES ──────────────────────────────────────
-    df["manhattan_dist"] = df["lat_diff"].abs() + df["lon_diff"].abs()
+    # ── Additional features ────────────────────────────────
     df["going_north"] = (df["lat_diff"] > 0).astype(int)
     df["going_east"] = (df["lon_diff"] > 0).astype(int)
     df["is_lga_pickup"] = (
@@ -134,20 +130,24 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
     df["is_evening_rush"] = df["hour"].isin([15, 16, 17, 18, 19]).astype(int)
     df["is_late_night"] = df["hour"].isin([20, 21, 22, 23]).astype(int)
     df["distance_km_sq"] = df["distance_km"] ** 2
-    
-     # Proper Manhattan distance in km
-    df["manhattan_km"] = (
-        haversine(df["pickup_latitude"], df["pickup_longitude"],
-                  df["pickup_latitude"], df["dropoff_longitude"])
-        +
-        haversine(df["pickup_latitude"], df["dropoff_longitude"],
-                  df["dropoff_latitude"], df["dropoff_longitude"])
+
+    # Proper Manhattan distance in km
+    df["manhattan_km"] = haversine(
+        df["pickup_latitude"],
+        df["pickup_longitude"],
+        df["pickup_latitude"],
+        df["dropoff_longitude"],
+    ) + haversine(
+        df["pickup_latitude"],
+        df["dropoff_longitude"],
+        df["dropoff_latitude"],
+        df["dropoff_longitude"],
     )
 
     # Interaction features
-    df["distance_hour"]    = df["distance_km"] * df["hour"]
+    df["distance_hour"] = df["distance_km"] * df["hour"]
     df["distance_weekday"] = df["distance_km"] * df["day_of_week"]
-    df["distance_rush"]    = df["distance_km"] * df["is_rush_hour"]
+    df["distance_rush"] = df["distance_km"] * df["is_rush_hour"]
 
     # Cyclical hour encoding
     df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
@@ -155,13 +155,13 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
 
     # Newark airport
     df["is_newark_pickup"] = (
-        (df["pickup_latitude"].between(40.68, 40.71)) &
-        (df["pickup_longitude"].between(-74.19, -74.16))
+        (df["pickup_latitude"].between(40.68, 40.71))
+        & (df["pickup_longitude"].between(-74.19, -74.16))
     ).astype(int)
 
     df["is_newark_dropoff"] = (
-        (df["dropoff_latitude"].between(40.68, 40.71)) &
-        (df["dropoff_longitude"].between(-74.19, -74.16))
+        (df["dropoff_latitude"].between(40.68, 40.71))
+        & (df["dropoff_longitude"].between(-74.19, -74.16))
     ).astype(int)
 
     return df
@@ -173,35 +173,50 @@ def get_feature_columns() -> list:
     Must match exactly what was used at training time.
     TODO: fill in after EDA
     """
-    
+
     return [
         # Distance features
-        "distance_km", "distance_km_sq", "manhattan_km",
-        "bearing", "lat_diff", "lon_diff",
-
+        "distance_km",
+        "distance_km_sq",
+        "manhattan_km",
+        "bearing",
+        "lat_diff",
+        "lon_diff",
         # Coordinates
-        "pickup_latitude", "pickup_longitude",
-        "dropoff_latitude", "dropoff_longitude",
-
+        "pickup_latitude",
+        "pickup_longitude",
+        "dropoff_latitude",
+        "dropoff_longitude",
         # Time features
-        "hour", "day_of_week", "month",
-        "hour_sin", "hour_cos",
-        "is_weekend", "is_rush_hour", "is_night",
-        "is_early_morning", "is_morning_rush",
-        "is_midday", "is_evening_rush", "is_late_night",
-
+        "hour",
+        "day_of_week",
+        "month",
+        "hour_sin",
+        "hour_cos",
+        "is_weekend",
+        "is_rush_hour",
+        "is_night",
+        "is_early_morning",
+        "is_morning_rush",
+        "is_midday",
+        "is_evening_rush",
+        "is_late_night",
         # Interaction features
-        "distance_hour", "distance_weekday", "distance_rush",
-
+        "distance_hour",
+        "distance_weekday",
+        "distance_rush",
         # Airport flags
-        "is_jfk_pickup", "is_jfk_dropoff",
-        "is_lga_pickup", "is_lga_dropoff",
-        "is_newark_pickup", "is_newark_dropoff",
+        "is_jfk_pickup",
+        "is_jfk_dropoff",
+        "is_lga_pickup",
+        "is_lga_dropoff",
+        "is_newark_pickup",
+        "is_newark_dropoff",
         "is_manhattan_pickup",
-
         # Direction
-        "going_north", "going_east",
-
+        "going_north",
+        "going_east",
         # Other
-        "passenger_count", "vendor_id"
+        "passenger_count",
+        "vendor_id",
     ]
