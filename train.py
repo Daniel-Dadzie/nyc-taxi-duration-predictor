@@ -11,6 +11,9 @@ import os
 import mlflow
 import mlflow.sklearn
 from mlflow import MlflowClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── Config from environment ───────────────────────────────────────
 MLFLOW_TRACKING_URI = os.environ["MLFLOW_TRACKING_URI"]

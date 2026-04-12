@@ -11,6 +11,9 @@ import threading
 import uuid
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import numpy as np
 import mlflow
 import mlflow.sklearn
