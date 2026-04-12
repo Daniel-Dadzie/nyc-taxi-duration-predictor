@@ -20,6 +20,134 @@
 
 ---
 
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- `pip`
+- Docker (optional — for container-based runs)
+- An MLflow tracking server URL (provided by the Cloud team)
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Set environment variables
+
+Copy the block below into a `.env` file or export them in your shell before running any commands:
+
+```bash
+export MLFLOW_TRACKING_URI="<MLflow server URL from Cloud team>"
+export DATA_PATH="<path or GCS URL to training CSV>"
+
+# Optional — defaults are shown
+export MLFLOW_EXPERIMENT_NAME="project-a-group-a1"
+export MODEL_REGISTRY_NAME="group-a1-model"
+```
+
+### 3. Train the model
+
+```bash
+python train.py
+```
+
+This will load the data, engineer features, train the model, log the run to MLflow, and promote the model to Production if it beats the current baseline.
+
+### 4. Run the prediction API locally
+
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8080
+```
+
+The API will be available at `http://localhost:8080`. Check the health endpoint:
+
+```bash
+curl http://localhost:8080/health
+# {"status":"ok"}
+```
+
+### 5. Run via Docker
+
+```bash
+# Build the image
+docker build -t group-a1-api .
+
+# Run the container (pass required env vars)
+docker run -p 8080:8080 \
+  -e MLFLOW_TRACKING_URI="<MLflow server URL>" \
+  -e MODEL_REGISTRY_NAME="group-a1-model" \
+  group-a1-api
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- `pip`
+- Docker (optional — for container-based runs)
+- An MLflow tracking server URL (provided by the Cloud team)
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Set environment variables
+
+Copy the block below into a `.env` file or export them in your shell before running any commands:
+
+```bash
+export MLFLOW_TRACKING_URI="<MLflow server URL from Cloud team>"
+export DATA_PATH="<path or GCS URL to training CSV>"
+
+# Optional — defaults are shown
+export MLFLOW_EXPERIMENT_NAME="project-a-group-a1"
+export MODEL_REGISTRY_NAME="group-a1-model"
+```
+
+### 3. Train the model
+
+```bash
+python train.py
+```
+
+This will load the data, engineer features, train the model, log the run to MLflow, and promote the model to Production if it beats the current baseline.
+
+### 4. Run the prediction API locally
+
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8080
+```
+
+The API will be available at `http://localhost:8080`. Check the health endpoint:
+
+```bash
+curl http://localhost:8080/health
+# {"status":"ok"}
+```
+
+### 5. Run via Docker
+
+```bash
+# Build the image
+docker build -t group-a1-api .
+
+# Run the container (pass required env vars)
+docker run -p 8080:8080 \
+  -e MLFLOW_TRACKING_URI="<MLflow server URL>" \
+  -e MODEL_REGISTRY_NAME="group-a1-model" \
+  group-a1-api
+```
+
+---
+
 ## Competition Rules
 
 - Both Group A1 and Group A2 build the same system independently
