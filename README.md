@@ -67,34 +67,32 @@ pip install -r requirements.txt
 ### 2. Set environment variables
 ```bash
 # Windows
-set MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+set MLFLOW_TRACKING_URI=https://mlflow-server-662636572351.us-central1.run.app
 set MLFLOW_EXPERIMENT_NAME=project-a-group-a1
 set MODEL_REGISTRY_NAME=group-a1-model
-set DATA_PATH=./train.csv
+set DATA_PATH=gs://group-a1-mlflow-artifacts/data/train.csv
 
 # Mac/Linux
-export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+export MLFLOW_TRACKING_URI=https://mlflow-server-662636572351.us-central1.run.app
 export MLFLOW_EXPERIMENT_NAME=project-a-group-a1
 export MODEL_REGISTRY_NAME=group-a1-model
-export DATA_PATH=./train.csv
+export DATA_PATH=gs://group-a1-mlflow-artifacts/data/train.csv
 ```
 
-### 3. Start MLflow server
-```bash
-python -m mlflow server --host 127.0.0.1 --port 5000
-```
+> **MLflow server** is hosted on Google Cloud Run — no local server needed.  
+> Artifacts are stored in GCS: `gs://group-a1-mlflow-artifacts/mlflow-artifacts`
 
-### 4. Train the model
+### 3. Train the model
 ```bash
 python train.py
 ```
 
-### 5. Start the API
+### 4. Start the API
 ```bash
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 6. Test the API
+### 5. Test the API
 Open your browser and go to:
 http://127.0.0.1:8000/docs
 
@@ -197,12 +195,12 @@ Hot-swaps to the latest Production model without container restart.
 
 ## Environment Variables
 
-| Variable | Description | Set by |
-|----------|-------------|--------|
-| `MLFLOW_TRACKING_URI` | MLflow server URL | Cloud team |
-| `MLFLOW_EXPERIMENT_NAME` | Agreed experiment name | Both |
-| `MODEL_REGISTRY_NAME` | Agreed registry name | Both |
-| `DATA_PATH` | Path or URL to training data | Cloud team |
+| Variable | Value | Set by |
+|----------|-------|--------|
+| `MLFLOW_TRACKING_URI` | `https://mlflow-server-662636572351.us-central1.run.app` | Cloud team |
+| `MLFLOW_EXPERIMENT_NAME` | `project-a-group-a1` | Both |
+| `MODEL_REGISTRY_NAME` | `group-a1-model` | Both |
+| `DATA_PATH` | `gs://group-a1-mlflow-artifacts/data/train.csv` | Cloud team |
 
 ---
 
