@@ -109,11 +109,7 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
         & (df["dropoff_longitude"].between(-73.80, -73.77))
     ).astype(int)
 
-    # Speed proxy (distance per unit)
-    df["dist_per_lat"] = df["distance_km"] / (df["lat_diff"].abs() + 1e-5)
-
     # ── NEW FEATURES ──────────────────────────────────────
-    df["manhattan_dist"] = df["lat_diff"].abs() + df["lon_diff"].abs()
     df["going_north"] = (df["lat_diff"] > 0).astype(int)
     df["going_east"] = (df["lon_diff"] > 0).astype(int)
     df["is_lga_pickup"] = (
