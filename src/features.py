@@ -199,5 +199,5 @@ def get_feature_columns() -> list:
         "going_north", "going_east",
 
         # Other
-        "passenger_count", "vendor_id"
+        # "passenger_count"
     ]

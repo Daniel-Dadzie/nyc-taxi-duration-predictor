@@ -5,6 +5,8 @@ __pycache__/
 .venv/
 venv/
 .env
+ 
+features_used.json
 
 # Jupyter
 .ipynb_checkpoints/
