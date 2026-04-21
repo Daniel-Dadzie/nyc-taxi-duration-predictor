@@ -53,8 +53,8 @@ All feature logic lives in `src/features.py`.
 **Direction flags:**
 - `going_north`, `going_east`
 
-**Other:**
-- `passenger_count`, `vendor_id`
+**Note:** Passenger count and vendor ID were analyzed but removed. Passenger count showed 
+negligible correlation (0.0139) with trip duration. See `known_issues.md` for analysis.
 
 ## Performance
 
@@ -70,15 +70,17 @@ Registry name: group-a1-model
 Stage: Production
 
 ## Known Limitations
-- Model is trained on 2016 data only — may not generalize to current 
-  traffic patterns, new roads, or post-COVID behavior changes.
-- Coordinates must be within NYC bounding box — trips starting or 
-  ending outside NYC are not supported.
-- Does not account for real-time traffic, weather, or special events.
-- Airport trips (JFK, LGA, EWR) may have higher prediction error due 
-  to variable wait times not captured in coordinates alone.
-- Passenger count has very low variance (71% are solo trips) — 
-  weak signal but retained for completeness.
+- **Temporal shift**: Model trained on 2016 data only — may not generalize to current 
+  traffic patterns, new infrastructure, or behavior changes (e.g., post-COVID).
+- **Geographic constraint**: Coordinates must be within NYC bounding box 
+  (longitude: [-74.25, -73.70], latitude: [40.49, 40.92]). Trips outside NYC 
+  are not supported.
+- **Missing real-world factors**: Does not account for real-time traffic, weather, 
+  special events, or construction.
+- **Airport variability**: Airport trips (JFK, LGA, EWR) may have higher prediction 
+  error due to variable wait times not captured by coordinates alone.
+- **Data limitations**: 2016 dataset may contain systematic biases that persist 
+  (imbalanced passenger counts, pre-filtered GPS errors).
 
 ## Retraining Policy
 - **Trigger**: Manual retraining when new data is available or RMSE 
@@ -91,20 +93,21 @@ Stage: Production
   Production model without container restart.
 
 ## API Usage
+
+### Predict by GPS Coordinates
 ```bash
-curl -X POST http://127.0.0.1:8000/predict \
+curl -X POST http://localhost:8080/predict \
   -H "Content-Type: application/json" \
   -d '{
     "pickup_longitude": -73.982155,
     "pickup_latitude": 40.767937,
     "dropoff_longitude": -73.964630,
     "dropoff_latitude": 40.765602,
-    "passenger_count": 1,
     "pickup_datetime": "2016-06-12 00:43:35"
   }'
 ```
 
-Expected response:
+Response:
 ```json
 {
   "trip_duration_seconds": 671.49,
@@ -112,6 +115,19 @@ Expected response:
   "model_version": "6"
 }
 ```
+
+### Predict by Street Address
+```bash
+curl -X POST http://localhost:8080/predict-by-address \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pickup_address": "Times Square, New York",
+    "dropoff_address": "JFK Airport, New York",
+    "pickup_datetime": "2016-06-12 08:30:00"
+  }'
+```
+
+Response: Same as above (addresses auto-geocoded to coordinates)
 
 ## Competition Note
 Group A1 achieved RMSE 282.47 seconds on the validation set using:

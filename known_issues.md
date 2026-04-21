@@ -46,6 +46,12 @@ Both ML and Cloud team members should contribute to this file.
 - **Evaluation metric**: RMSE chosen as primary metric because it penalizes 
   large errors more heavily, which matters for trip planning.
 
+- **Passenger count removed**: Analysis showed negligible correlation (0.0139) with 
+  trip duration. Mean duration varied only 1.02 minutes across passenger counts. 
+  Concluded that passenger count has no meaningful effect on NYC taxi trip duration—
+  the same route takes approximately the same time regardless of occupancy. 
+  Removed from both feature engineering and API contract.
+
 ## Open Questions
 
 - Would adding external weather data improve RMSE significantly?
