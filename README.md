@@ -87,7 +87,7 @@ python train.py
 This will:
 1. Load raw data from `DATA_PATH`
 2. Clean the data (remove outliers, invalid coordinates, impossible passenger counts)
-3. Engineer 35+ features from coordinates, time, and location data
+3. Engineer 35 features from coordinates, time, and location data
 4. Train XGBoost on log-transformed trip duration
 5. Log the run to MLflow (metrics, params, model)
 6. Automatically promote to Production if it beats the current baseline RMSE
@@ -209,55 +209,61 @@ Reloads the latest Production model without container restart. Called automatica
 
 ## Feature Engineering
 
-All 35+ engineered features are defined in `src/features.py` and shared between `train.py` and `api/main.py`:
+All **35 engineered features** are defined in `src/features.py` and shared between `train.py` and `api/main.py`:
 
-**Distance metrics:**
-- Haversine distance (straight-line distance in km)
-- Manhattan distance (street grid distance)
-- Bearing (direction of travel in degrees)
-- Coordinate differences (lat/lon delta)
+**Distance metrics (6):**
+- `distance_km` — Haversine distance (geodesic)
+- `distance_km_sq` — Squared distance
+- `manhattan_km` — Manhattan distance (grid-based)
+- `bearing` — Direction of travel (degrees)
+- `lat_diff`, `lon_diff` — Coordinate deltas
 
-**Time-based features:**
-- Hour of day (0-23)
-- Day of week (0=Monday, 6=Sunday)
-- Month (1-12)
-- Cyclical hour encoding (sin/cos for circular nature)
-- Time-of-day flags: is_rush_hour, is_night, is_early_morning, is_morning_rush, is_midday, is_evening_rush, is_late_night
-- Weekend flag
+**Coordinate features (4):**
+- `pickup_latitude`, `pickup_longitude`, `dropoff_latitude`, `dropoff_longitude`
 
-**Location flags:**
-- Airport proximity: is_jfk_pickup, is_jfk_dropoff, is_lga_pickup, is_lga_dropoff, is_newark_pickup, is_newark_dropoff
-- Is Manhattan pickup
+**Time features (13):**
+- `hour`, `day_of_week`, `month` — Raw time components
+- `hour_sin`, `hour_cos` — Cyclical hour encoding
+- `is_weekend`, `is_rush_hour`, `is_night` — Binary flags
+- `is_early_morning`, `is_morning_rush`, `is_midday`, `is_evening_rush`, `is_late_night` — Hour buckets
 
-**Interaction features:**
-- distance × hour
-- distance × day of week
-- distance × rush hour flag
+**Airport & location flags (7):**
+- `is_jfk_pickup`, `is_jfk_dropoff`
+- `is_lga_pickup`, `is_lga_dropoff`
+- `is_newark_pickup`, `is_newark_dropoff`
+- `is_manhattan_pickup`
 
-**Directional features:**
-- going_north
-- going_east
+**Interaction features (3):**
+- `distance_hour`, `distance_weekday`, `distance_rush`
 
-See `model_card.md` for full feature documentation and decisions made.
+**Directional features (2):**
+- `going_north`, `going_east`
+
+See `model_card.md` for complete feature documentation with coordinates and analysis.
 
 ---
 
 ## Data Pipeline
 
 ### Cleaning (`src/features.py:clean()`)
-- Removes invalid passenger counts (< 1 or > 6)
-- Filters trip duration to 60–10,800 seconds (1 min to 3 hours)
-- Removes out-of-bounds coordinates (outside NYC bounding box)
+- Filters passenger count to [1, 6] range (removes 0, 7-9 as impossible)
+- Filters trip duration to [60, 10800] seconds (1 min to 3 hours)
+- Removes out-of-bounds coordinates (outside NYC bounding box: [-74.25, -73.70] lon, [40.49, 40.92] lat)
 - Converts datetime columns to proper datetime objects
+- Returns cleaned DataFrame with same schema
 
 ### Training (`train.py`)
 - Loads data from `DATA_PATH` (local file or GCS)
-- Applies cleaning
-- Engineers features
-- Splits into train/val/test (70/15/15 by default)
-- Trains XGBoost on log-transformed trip duration
-- Logs metrics, params, and model to MLflow
-- Promotes to Production if RMSE beats current baseline
+- Cleans data: filters outliers, invalid records, out-of-bounds coordinates
+- Engineers 35 features from coordinates, time, and location data
+- Splits into train/val/test (70%/15%/15%, random_state=42)
+- Trains XGBoost (2000 estimators, learning_rate=0.02, early stopping at 50 rounds)
+- Evaluates on validation set → calculates RMSE and RMSLE
+- **Evaluation gate**: New RMSE compared against current production model
+  - If no production model exists → promotes as first model
+  - If new RMSE < production RMSE → promotes to Production (using MLflow aliases)
+  - Otherwise → keeps current production model (no demotion)
+- Logs all metrics, hyperparameters, and model to MLflow
 
 ### Inference (`api/main.py`)
 - Loads Production model from MLflow registry on startup
@@ -270,21 +276,28 @@ See `model_card.md` for full feature documentation and decisions made.
 
 ## Model Details
 
-**Algorithm:** XGBoost Regressor
+**Algorithm:** XGBoost Regressor (Gradient Boosted Trees)
 
-**Target:** trip_duration in seconds, trained on log1p(trip_duration)
+**Hyperparameters:**
+- `n_estimators`: 2000 trees with early stopping at 50 rounds
+- `learning_rate`: 0.02 (conservative to prevent overfitting)
+- `max_depth`: 9 (tree depth constraint)
+- `subsample`: 0.8, `colsample_bytree`: 0.7 (reduce variance)
+- `min_child_weight`: 5, `gamma`: 0.1 (regularization)
+- `reg_alpha`: 0.1, `reg_lambda`: 1.0 (L1 & L2 regularization)
+- `tree_method`: "hist" (memory-efficient histogram-based training)
 
-**Training data:** 1,458,644 raw rows → 1,446,766 after cleaning (NYC Yellow Taxi, Jan–Jun 2016)
+**Target:** trip_duration in seconds, trained on `log1p(trip_duration)` to normalize skewed distribution
 
-**Primary metric:** RMSE (Root Mean Squared Error)
+**Training data:** 1,446,766 samples (cleaned from 1,458,644 raw rows, NYC Yellow Taxi, Jan–Jun 2016)
 
-**Key decisions:**
-- Log-transform applied to handle skewed duration distribution
-- Predictions clipped to [60, 10800] seconds
-- XGBoost chosen for strong performance on tabular data with mixed feature types
-- Passenger count removed from features (negligible correlation with duration)
+**Features:** 35 engineered features across 8 categories (distance, coordinates, time, airports, interactions, directional)
 
-See `model_card.md` for complete model documentation.
+**Primary metric:** RMSE (Root Mean Squared Error in seconds)
+
+**Validation performance:** RMSE 282.47s, RMSLE 0.305
+
+See `model_card.md` for complete model documentation including all features, training data details, and performance metrics.
 
 ---
 

@@ -1,60 +1,94 @@
 # Model Card — Group A1 — Taxi Trip Duration Predictor
 
 ## Model Description
-XGBoost Regressor trained to predict NYC taxi trip duration in seconds.
-XGBoost was chosen for its strong performance on tabular data, built-in 
-handling of mixed feature types, and fast training with parallel processing.
-The model is trained on log1p(trip_duration) to handle the skewed target 
-distribution, and predictions are converted back using expm1().
+**Algorithm:** XGBoost Regressor (Gradient Boosted Trees)
+
+**Hyperparameters:**
+- `n_estimators`: 2000 trees (early stopping at 50 rounds without improvement)
+- `learning_rate`: 0.02 (conservative, prevents overfitting)
+- `max_depth`: 9 (tree depth constraint)
+- `subsample`: 0.8 (use 80% of samples per tree)
+- `colsample_bytree`: 0.7 (use 70% of features per tree)
+- `min_child_weight`: 5 (minimum sum of instance weight in child)
+- `gamma`: 0.1 (minimum loss reduction for split)
+- `reg_alpha`: 0.1 (L1 regularization)
+- `reg_lambda`: 1.0 (L2 regularization)
+- `tree_method`: "hist" (memory-efficient histogram-based training)
+- `max_bin`: 256 (histogram bins for splitting)
+
+**Target transformation:**
+- Input: Raw trip duration in seconds (highly skewed, range 60-10,800 seconds)
+- Training: `log1p(trip_duration)` to normalize distribution
+- Inference: Convert predictions back with `expm1()` then clip to [60, 10,800]
+
+**Model was chosen for:**
+- Strong performance on tabular data with mixed feature types
+- Built-in handling of non-linear relationships
+- Fast training with parallel processing (n_jobs=-1)
+- Robustness to outliers
+- Memory efficiency (float32 casting, histogram binning)
 
 ## Training Data
 - **Source**: NYC Taxi Trip Duration dataset (Kaggle competition)
-- **Size**: 1,458,644 raw rows → 1,446,766 after cleaning
-- **Date range**: January 2016 — June 2016
-- **Known quality issues**: See known_issues.md
-- **Preprocessing applied**:
-  - Removed trips < 60 seconds and > 10,800 seconds
-  - Removed invalid passenger counts (0, 7, 8, 9)
-  - Removed coordinates outside NYC bounding box
-  - Dropped id, dropoff_datetime, store_and_fwd_flag columns
+- **Size**: 1,458,644 raw rows → 1,446,766 after cleaning (99.2% retained)
+- **Date range**: January 2016 — June 2016 (6 months)
+- **Known quality issues**: See `known_issues.md`
 
-## Features
-All feature logic lives in `src/features.py`.
+**Data split (from cleaned data):**
+- Training: 70% → ~1,012,736 samples
+- Validation: 15% → ~216,915 samples (used for early stopping)
+- Test: 15% → ~216,915 samples
 
-**Distance features:**
-- `distance_km` — Haversine distance between pickup and dropoff
+**Preprocessing applied:**
+- Removed trips < 60 seconds or > 10,800 seconds (outliers)
+- Removed invalid passenger counts (< 1 or > 6)
+- Removed coordinates outside NYC bounding box (GPS errors)
+- Dropped columns: `id`, `store_and_fwd_flag` (irrelevant), `dropoff_datetime` (prevents data leakage)
+- Converted datetime columns to proper datetime objects
+- Cast all features to float32 (halves memory usage without accuracy loss)
+
+## Features (35 total)
+All feature logic lives in `src/features.py` and is shared between training and inference.
+
+**Distance metrics (6):**
+- `distance_km` — Haversine distance between pickup and dropoff (geodesic)
 - `distance_km_sq` — Squared distance (captures non-linear relationship)
-- `manhattan_km` — True Manhattan distance in km
-- `bearing` — Direction of travel in degrees
-- `lat_diff`, `lon_diff` — Coordinate differences
+- `manhattan_km` — True Manhattan distance in km (grid-based)
+- `bearing` — Direction of travel in degrees (0-360)
+- `lat_diff`, `lon_diff` — Coordinate differences (raw deltas)
 
-**Coordinate features:**
+**Coordinate features (4):**
 - `pickup_latitude`, `pickup_longitude`
 - `dropoff_latitude`, `dropoff_longitude`
 
-**Time features:**
-- `hour`, `day_of_week`, `month`
-- `hour_sin`, `hour_cos` — Cyclical hour encoding
-- `is_weekend`, `is_rush_hour`, `is_night`
-- `is_early_morning`, `is_morning_rush`, `is_midday`
-- `is_evening_rush`, `is_late_night`
+**Time features (13):**
+- `hour`, `day_of_week`, `month` — Raw time components
+- `hour_sin`, `hour_cos` — Cyclical hour encoding (preserves circular nature)
+- `is_weekend` — Binary flag for Saturday/Sunday
+- `is_rush_hour` — Binary flag for hours [7,8,9,17,18,19]
+- `is_night` — Binary flag for hours [22,23,0,1,2,3,4,5]
+- `is_early_morning`, `is_morning_rush`, `is_midday`, `is_evening_rush`, `is_late_night` — Hour bucket flags
 
-**Interaction features:**
-- `distance_hour` — distance × hour
-- `distance_weekday` — distance × day of week
-- `distance_rush` — distance × rush hour flag
+**Airport & Location flags (7):**
+- `is_jfk_pickup`, `is_jfk_dropoff` — JFK International (40.63-40.65°N, -73.80--73.77°W)
+- `is_lga_pickup`, `is_lga_dropoff` — LaGuardia (40.76-40.78°N, -73.88--73.86°W)
+- `is_newark_pickup`, `is_newark_dropoff` — Newark EWR (40.68-40.71°N, -74.19--74.16°W)
+- `is_manhattan_pickup` — Manhattan pickup area (40.70-40.83°N, -74.02--73.93°W)
 
-**Location flags:**
-- `is_jfk_pickup`, `is_jfk_dropoff`
-- `is_lga_pickup`, `is_lga_dropoff`
-- `is_newark_pickup`, `is_newark_dropoff`
-- `is_manhattan_pickup`
+**Interaction features (3):**
+- `distance_hour` — distance_km × hour
+- `distance_weekday` — distance_km × day_of_week
+- `distance_rush` — distance_km × is_rush_hour
 
-**Direction flags:**
-- `going_north`, `going_east`
+**Directional features (2):**
+- `going_north` — Binary flag if lat_diff > 0
+- `going_east` — Binary flag if lon_diff > 0
 
-**Note:** Passenger count and vendor ID were analyzed but removed. Passenger count showed 
-negligible correlation (0.0139) with trip duration. See `known_issues.md` for analysis.
+**Features removed (2):**
+- `passenger_count` — Negligible correlation with duration (r=0.0139), only 1.02 min variation
+- `vendor_id` — No meaningful signal
+
+See `known_issues.md` for detailed analysis.
 
 ## Performance
 
@@ -82,15 +116,34 @@ Stage: Production
 - **Data limitations**: 2016 dataset may contain systematic biases that persist 
   (imbalanced passenger counts, pre-filtered GPS errors).
 
-## Retraining Policy
-- **Trigger**: Manual retraining when new data is available or RMSE 
-  degrades significantly on production traffic.
-- **Promotion metric**: RMSE (lower is better).
-- **Promotion rule**: New model is promoted to Production only if its 
-  validation RMSE is strictly lower than the current Production model.
-- **On ties**: Current Production model is retained (no promotion).
-- **Hot-swap**: API supports `/reload-model` endpoint to load new 
-  Production model without container restart.
+## Retraining & Promotion Policy
+
+**Automated evaluation gate (in `train.py`):**
+1. After training, model is always registered to MLflow
+2. New RMSE is compared against current production model RMSE
+3. Promotion rules:
+   - **If no production model exists:** Promote as first production model
+   - **If production model exists:** Promote ONLY if new RMSE < production RMSE (strict improvement required)
+   - **On ties or worse performance:** Keep current production model (no demotion)
+
+**Model versioning:**
+- Uses MLflow **aliases** instead of deprecated stages
+- Production model tagged with alias `"production"`
+- Allows rollback by re-setting alias to previous version
+- All versions remain queryable for comparison
+
+**Retraining trigger:**
+- Manual: `python train.py` (when new data available)
+- Automated: Cloud Scheduler runs weekly (scheduled via Cloud Run)
+
+**Model promotion metric:** 
+- Primary: RMSE (lower is better) in seconds
+- Secondary: RMSLE (Root Mean Squared Log Error) for reference
+
+**Hot-swap capability:**
+- API endpoint `/reload-model` reloads latest production model
+- No container restart required
+- Can be called manually or via Cloud Scheduler after retraining
 
 ## API Usage
 
@@ -132,6 +185,6 @@ Response: Same as above (addresses auto-geocoded to coordinates)
 ## Competition Note
 Group A1 achieved RMSE 282.47 seconds on the validation set using:
 - XGBoost with 2000 estimators and log-transformed target
-- 30+ engineered features including airport flags, cyclical time 
+- 35 engineered features including airport flags, cyclical time 
   encoding, and distance interaction features
 - Automated model promotion via MLflow evaluation gate
