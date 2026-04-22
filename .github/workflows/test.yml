@@ -26,5 +26,8 @@ jobs:
           pip install pytest httpx
 
       - name: Run tests
+        env:
+          MLFLOW_TRACKING_URI: http://localhost:5000
+          DATA_PATH: train.csv
         run: |
           python -m pytest tests/test_api.py -v
