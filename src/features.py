@@ -62,6 +62,18 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
     Returns a DataFrame with model-ready feature columns.
     TODO: implement for Project A
     """
+    
+    # ── NEW (v2): Holidays in training data (Jan-June 2016) ─────────────
+    # Major US holidays + observed holidays during training period
+    holidays_2016 = {
+        "2016-01-01",  # New Year's Day
+        "2016-01-18",  # MLK Jr. Day
+        "2016-02-15",  # Presidents' Day
+        "2016-03-17",  # St. Patrick's Day
+        "2016-05-30",  # Memorial Day
+    }
+    df["pickup_date"] = df["pickup_datetime"].dt.date.astype(str)
+    df["is_holiday"] = df["pickup_date"].isin(holidays_2016).astype(int)
 
     # Distance between pickup and dropoff
     df["distance_km"] = haversine(
@@ -159,6 +171,22 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
         (df["dropoff_longitude"].between(-74.19, -74.16))
     ).astype(int)
 
+    # ── NEW FEATURES (v2 improvements) ────────────────────────────────────
+    # 1. Combined Manhattan indicator (pickup OR dropoff in Manhattan)
+    df["is_manhattan"] = ((df["is_manhattan_pickup"] == 1) | 
+                          ((df["dropoff_latitude"].between(40.70, 40.83)) & 
+                           (df["dropoff_longitude"].between(-74.02, -73.93)))).astype(int)
+
+    # 2. Route complexity: ratio of Manhattan distance to Euclidean distance
+    # Higher ratio = more complex/winding route
+    df["route_complexity"] = df["manhattan_km"] / (df["distance_km"] + 0.001)  # avoid division by zero
+
+    # 3. Shift start indicator (driver shift change, typically 6 AM)
+    df["is_shift_start"] = (df["hour"] == 6).astype(int)
+
+    # 4. Minutes into the day (0-1440) for finer temporal granularity
+    df["minutes_into_day"] = df["hour"] * 60 + df["pickup_datetime"].dt.minute
+
     return df
 
 
@@ -197,5 +225,11 @@ def get_feature_columns() -> list:
         # Direction
         "going_north", "going_east",
 
-         
+        # NEW FEATURES (v2) ───────────────────────────────────────────────
+        # Improved features for better RMSE
+        "is_manhattan",           # Combined Manhattan indicator
+        "route_complexity",       # Manhattan/Euclidean distance ratio
+        "is_shift_start",         # Driver shift change (6 AM)
+        "is_holiday",             # US holiday flag
+        "minutes_into_day",       # Finer temporal granularity (0-1440)
     ]
