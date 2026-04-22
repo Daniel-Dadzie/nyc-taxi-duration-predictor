@@ -10,7 +10,7 @@
 
 ## Project Overview
 
-This project predicts NYC taxi trip duration in seconds given pickup and dropoff coordinates and time of day. The prediction engine is powered by **XGBoost** trained on 1.4M+ taxi trips with 35+ engineered features including distance metrics, time-based features, airport flags, and interaction features.
+This project predicts NYC taxi trip duration in seconds given pickup and dropoff coordinates and time of day. The prediction engine is powered by **XGBoost** trained on 1.4M+ taxi trips with 40 engineered features including distance metrics, time-based features, airport flags, interaction features, and advanced temporal/route complexity features.
 
 **Key deliverables:**
 - ✅ ML pipeline: data cleaning, feature engineering, model training, MLflow logging
@@ -209,7 +209,7 @@ Reloads the latest Production model without container restart. Called automatica
 
 ## Feature Engineering
 
-All **35 engineered features** are defined in `src/features.py` and shared between `train.py` and `api/main.py`:
+All **40 engineered features** are defined in `src/features.py` and shared between `train.py` and `api/main.py`:
 
 **Distance metrics (6):**
 - `distance_km` — Haversine distance (geodesic)
@@ -239,6 +239,13 @@ All **35 engineered features** are defined in `src/features.py` and shared betwe
 **Directional features (2):**
 - `going_north`, `going_east`
 
+**Advanced temporal & route features (5) — Added v2:**
+- `is_manhattan` — Both pickup OR dropoff in Manhattan (consolidates spatial signals for high-demand area)
+- `route_complexity` — Manhattan distance / Euclidean distance ratio (captures route winding; higher = more grid-like)
+- `is_shift_start` — Driver shift change indicator (hour == 6, captures demand spike at shift changes)
+- `is_holiday` — US holiday flag for Jan-Jun 2016 (MLK Jr. Day, Presidents Day, Memorial Day)
+- `minutes_into_day` — Finer temporal granularity (0-1440 instead of 0-23 hours, better captures intra-hour patterns)
+
 See `model_card.md` for complete feature documentation with coordinates and analysis.
 
 ---
@@ -255,7 +262,7 @@ See `model_card.md` for complete feature documentation with coordinates and anal
 ### Training (`train.py`)
 - Loads data from `DATA_PATH` (local file or GCS)
 - Cleans data: filters outliers, invalid records, out-of-bounds coordinates
-- Engineers 35 features from coordinates, time, and location data
+- Engineers 40 features from coordinates, time, location, route complexity, and temporal data
 - Splits into train/val/test (70%/15%/15%, random_state=42)
 - Trains XGBoost (2000 estimators, learning_rate=0.02, early stopping at 50 rounds)
 - Evaluates on validation set → calculates RMSE and RMSLE
@@ -291,11 +298,11 @@ See `model_card.md` for complete feature documentation with coordinates and anal
 
 **Training data:** 1,446,766 samples (cleaned from 1,458,644 raw rows, NYC Yellow Taxi, Jan–Jun 2016)
 
-**Features:** 35 engineered features across 8 categories (distance, coordinates, time, airports, interactions, directional)
+**Features:** 40 engineered features across 8 categories (distance, coordinates, time, airports, interactions, directional, route complexity, temporal)
 
 **Primary metric:** RMSE (Root Mean Squared Error in seconds)
 
-**Validation performance:** RMSE 282.47s, RMSLE 0.305
+**Validation performance:** RMSE 279.02s, RMSLE 0.3021 (improved from 282.47s via v2 feature expansion)
 
 See `model_card.md` for complete model documentation including all features, training data details, and performance metrics.
 

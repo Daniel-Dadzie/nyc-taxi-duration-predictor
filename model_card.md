@@ -47,7 +47,7 @@
 - Converted datetime columns to proper datetime objects
 - Cast all features to float32 (halves memory usage without accuracy loss)
 
-## Features (35 total)
+## Features (40 total)
 All feature logic lives in `src/features.py` and is shared between training and inference.
 
 **Distance metrics (6):**
@@ -84,6 +84,13 @@ All feature logic lives in `src/features.py` and is shared between training and 
 - `going_north` — Binary flag if lat_diff > 0
 - `going_east` — Binary flag if lon_diff > 0
 
+**Advanced temporal & route features (5) — Added v2:**
+- `is_manhattan` — Binary flag if pickup OR dropoff in Manhattan (40.70-40.83°N, -74.02--73.93°W); consolidates spatial signals for high-demand area
+- `route_complexity` — Continuous, calculated as manhattan_km / (distance_km + 0.001); captures route winding (higher = more grid-like path vs. direct)
+- `is_shift_start` — Binary flag if hour == 6; captures demand spike at typical driver shift changes
+- `is_holiday` — Binary flag for major US holidays in training period (MLK Jr. Day, Presidents Day, Memorial Day, other federal holidays Jan-Jun 2016)
+- `minutes_into_day` — Continuous, calculated as hour * 60 + minute; provides finer temporal granularity than raw hour (range 0-1440)
+
 **Features removed (2):**
 - `passenger_count` — Negligible correlation with duration (r=0.0139), only 1.02 min variation
 - `vendor_id` — No meaningful signal
@@ -94,8 +101,15 @@ See `known_issues.md` for detailed analysis.
 
 | Split      | RMSE   | RMSLE | Notes                        |
 |------------|--------|-------|------------------------------|
-| Validation | 282.47 | 0.305 | 70/15/15 split, random_state=42 |
+| Validation | 279.02 | 0.3021| 40 features, v2 expansion, 70/15/15 split |
 | Test       |        |       | Not yet evaluated            |
+
+**v2 Improvement (Feature Expansion):**
+- Original model (v1): 35 features, RMSE 282.40s
+- Expanded model (v2): 40 features (5 new features added), RMSE 279.02s  
+- **Improvement: -3.38 seconds (-1.20%)**
+- SHAP analysis identified `distance_km` as dominant predictor (0.30 importance)
+- New features capture route complexity, temporal patterns, and location-specific demand signals
 
 ## MLflow Run Reference
 Run ID: `165820e3bff64296890e53887c1bacbc`
