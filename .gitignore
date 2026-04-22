@@ -34,3 +34,8 @@ service-account*.json
 # Dataset
 train.csv
 test.csv
+
+#testing files
+test_split.csv
+train_split.csv
+ 

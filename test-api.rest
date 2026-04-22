@@ -1,7 +1,53 @@
+### Health check
+GET http://127.0.0.1:8000/health
+
+### Model info
+GET http://127.0.0.1:8000/model-info
+
+### Coverage
+GET http://127.0.0.1:8000/coverage
+
+### Predict by coordinates (longitude + latitude)
+POST http://127.0.0.1:8000/predict
+Content-Type: application/json
+
+{
+  "pickup_longitude": -73.9855,
+  "pickup_latitude": 40.7580,
+  "dropoff_longitude": -73.7781,
+  "dropoff_latitude": 40.6413,
+  "pickup_datetime": "2016-06-12 08:30:00"
+}
+
+### Predict by coordinates without pickup_datetime
+POST http://127.0.0.1:8000/predict
+Content-Type: application/json
+
+{
+  "pickup_longitude": -73.9855,
+  "pickup_latitude": 40.7580,
+  "dropoff_longitude": -73.7781,
+  "dropoff_latitude": 40.6413
+}
+
+### Predict by address (city/place names)
 POST http://127.0.0.1:8000/predict-by-address
 Content-Type: application/json
- 
+
 {
-  "pickup_address": "Flushing",
-  "dropoff_address": "Tottenville"
+  "pickup_address": "Times Square, New York",
+  "dropoff_address": "JFK Airport, Queens, NY",
+  "pickup_datetime": "2016-06-12 08:30:00"
 }
+
+### Predict by address with Newark
+POST http://127.0.0.1:8000/predict-by-address
+Content-Type: application/json
+
+{
+  "pickup_address": "Flushing Meadows Corona Park, Queens, NY",
+  "dropoff_address": "Newark Liberty International Airport, Newark, NJ"
+}
+
+### Reload model
+POST http://127.0.0.1:8000/reload-model
