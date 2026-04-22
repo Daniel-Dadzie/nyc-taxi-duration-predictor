@@ -14,9 +14,12 @@ import os
 import logging
 import threading
 import uuid
+import time
 from datetime import datetime
 
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import numpy as np
@@ -38,37 +41,78 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 # NYC strict bounding box (longitude, latitude)
 NYC_LON_MIN, NYC_LON_MAX = -74.25, -73.70
-NYC_LAT_MIN, NYC_LAT_MAX =  40.49,  40.92
+NYC_LAT_MIN, NYC_LAT_MAX = 40.49, 40.92
 
 # Viewbox for Nominatim: list of (lon, lat) corners  [top-left, bottom-right]
 NYC_VIEWBOX = [
-    (NYC_LON_MIN, NYC_LAT_MAX),   # top-left
-    (NYC_LON_MAX, NYC_LAT_MIN),   # bottom-right
+    (NYC_LON_MIN, NYC_LAT_MAX),  # top-left
+    (NYC_LON_MAX, NYC_LAT_MIN),  # bottom-right
 ]
 
 # Newark Airport bounding box (special supported case)
 EWR_LON_MIN, EWR_LON_MAX = -74.19, -74.15
-EWR_LAT_MIN, EWR_LAT_MAX =  40.67,  40.71
+EWR_LAT_MIN, EWR_LAT_MAX = 40.67, 40.71
 
 # Known NYC neighbourhoods / landmarks for fuzzy-match hints
 NYC_KNOWN_PLACES = [
-    "Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island",
-    "Harlem", "Midtown", "Downtown", "Uptown", "Financial District",
-    "Chelsea", "Greenwich Village", "SoHo", "Tribeca", "Chinatown",
-    "Lower East Side", "Upper East Side", "Upper West Side",
-    "Flushing", "Astoria", "Long Island City", "Jamaica",
-    "JFK Airport", "LaGuardia Airport", "Newark Airport",
-    "Times Square", "Central Park", "Empire State Building",
-    "Grand Central", "Penn Station", "Wall Street",
-    "Williamsburg", "Bushwick", "Crown Heights", "Flatbush",
-    "Bay Ridge", "Coney Island", "Bensonhurst",
+    "Manhattan",
+    "Brooklyn",
+    "Queens",
+    "Bronx",
+    "Staten Island",
+    "Harlem",
+    "Midtown",
+    "Downtown",
+    "Uptown",
+    "Financial District",
+    "Chelsea",
+    "Greenwich Village",
+    "SoHo",
+    "Tribeca",
+    "Chinatown",
+    "Lower East Side",
+    "Upper East Side",
+    "Upper West Side",
+    "Flushing",
+    "Astoria",
+    "Long Island City",
+    "Jamaica",
+    "JFK Airport",
+    "LaGuardia Airport",
+    "Newark Airport",
+    "Times Square",
+    "Central Park",
+    "Empire State Building",
+    "Grand Central",
+    "Penn Station",
+    "Wall Street",
+    "Williamsburg",
+    "Bushwick",
+    "Crown Heights",
+    "Flatbush",
+    "Bay Ridge",
+    "Coney Island",
+    "Bensonhurst",
 ]
 
 # Shared geocoder instance
 geolocator = Nominatim(user_agent="group-a1-taxi-predictor")
 
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+# FastAPI now recommends lifespan handlers instead of @app.on_event("startup").
+# We load the Production model once when the application starts serving.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    load_production_model()
+    yield
+    # No shutdown cleanup is required yet, but this block is kept so future
+    # resource cleanup can be added here without changing the app structure.
+
+
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
+    lifespan=lifespan,
     title="Group A1 — Taxi Trip Duration Predictor",
     description="""
 Predicts NYC taxi trip duration given pickup and dropoff details.
@@ -96,15 +140,16 @@ logger = logging.getLogger(__name__)
 # ── Model state ───────────────────────────────────────────────────────────────
 model_lock = threading.Lock()
 model_state: dict = {
-    "model":      None,
-    "version":    None,
-    "stage":      None,
+    "model": None,
+    "version": None,
+    "stage": None,
     "trained_at": None,
-    "metrics":    {},
+    "metrics": {},
 }
 
 
 # ── Global exception handlers ─────────────────────────────────────────────────
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -119,14 +164,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={
-            "error":   "Validation failed",
+            "error": "Validation failed",
             "details": errors,
-            "hint":    "Check the field values and try again.",
+            "hint": "Check the field values and try again.",
         },
     )
 
 
 # ── Model loader ──────────────────────────────────────────────────────────────
+
 
 def load_production_model() -> None:
     """Load the current Production model from the MLflow registry."""
@@ -139,36 +185,32 @@ def load_production_model() -> None:
         )
     v = versions[0]
     model = mlflow.sklearn.load_model(f"models:/{MODEL_REGISTRY_NAME}/Production")
-    run   = client.get_run(v.run_id)
+    run = client.get_run(v.run_id)
     with model_lock:
-        model_state["model"]      = model
-        model_state["version"]    = v.version
-        model_state["stage"]      = "Production"
+        model_state["model"] = model
+        model_state["version"] = v.version
+        model_state["stage"] = "Production"
         model_state["trained_at"] = run.info.start_time
-        model_state["metrics"]    = run.data.metrics
+        model_state["metrics"] = run.data.metrics
     logger.info("Loaded model version %s from Production.", v.version)
-
-
-@app.on_event("startup")
-def startup() -> None:
-    load_production_model()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def is_in_nyc(latitude: float, longitude: float) -> bool:
     """Return True if the coordinate falls inside the NYC bounding box."""
     return (
-        NYC_LON_MIN <= longitude <= NYC_LON_MAX and
-        NYC_LAT_MIN <= latitude  <= NYC_LAT_MAX
+        NYC_LON_MIN <= longitude <= NYC_LON_MAX
+        and NYC_LAT_MIN <= latitude <= NYC_LAT_MAX
     )
 
 
 def is_newark_airport(latitude: float, longitude: float) -> bool:
     """Return True if the coordinate falls inside the Newark Airport box."""
     return (
-        EWR_LON_MIN <= longitude <= EWR_LON_MAX and
-        EWR_LAT_MIN <= latitude  <= EWR_LAT_MAX
+        EWR_LON_MIN <= longitude <= EWR_LON_MAX
+        and EWR_LAT_MIN <= latitude <= EWR_LAT_MAX
     )
 
 
@@ -180,10 +222,7 @@ def is_supported_location(latitude: float, longitude: float) -> bool:
       - NYC bounding box
       - Newark Airport special-case box
     """
-    return (
-        is_in_nyc(latitude, longitude) or
-        is_newark_airport(latitude, longitude)
-    )
+    return is_in_nyc(latitude, longitude) or is_newark_airport(latitude, longitude)
 
 
 def _closest_nyc_place(address: str) -> str | None:
@@ -225,8 +264,7 @@ def parse_datetime(v) -> str:
 
     if not isinstance(v, str):
         raise ValueError(
-            "pickup_datetime must be a string. "
-            'Example: "2016-06-12 08:30:00"'
+            "pickup_datetime must be a string. " 'Example: "2016-06-12 08:30:00"'
         )
 
     # Normalise T separator → space
@@ -268,7 +306,10 @@ def geocode_address(address: str):
         if location:
             logger.info(
                 "Geocoded strict '%s' → (%f, %f) | %s",
-                address, location.latitude, location.longitude, location.address
+                address,
+                location.latitude,
+                location.longitude,
+                location.address,
             )
             if is_supported_location(location.latitude, location.longitude):
                 return location
@@ -282,7 +323,10 @@ def geocode_address(address: str):
         if location:
             logger.info(
                 "Geocoded relaxed '%s' → (%f, %f) | %s",
-                address, location.latitude, location.longitude, location.address
+                address,
+                location.latitude,
+                location.longitude,
+                location.address,
             )
             if is_supported_location(location.latitude, location.longitude):
                 return location
@@ -296,7 +340,10 @@ def geocode_address(address: str):
         if location:
             logger.info(
                 "Geocoded Newark '%s' → (%f, %f) | %s",
-                address, location.latitude, location.longitude, location.address
+                address,
+                location.latitude,
+                location.longitude,
+                location.address,
             )
             if is_supported_location(location.latitude, location.longitude):
                 return location
@@ -328,9 +375,7 @@ def _address_error(label: str, address: str) -> HTTPException:
     Includes a fuzzy-match suggestion when possible.
     """
     hint = _closest_nyc_place(address)
-    suggestion = (
-        f' Did you mean "{hint}, New York"?' if hint else ""
-    )
+    suggestion = f' Did you mean "{hint}, New York"?' if hint else ""
     return HTTPException(
         status_code=422,
         detail=(
@@ -345,6 +390,7 @@ def _address_error(label: str, address: str) -> HTTPException:
 
 # ── Request / Response schemas ────────────────────────────────────────────────
 
+
 class PredictRequest(BaseModel):
     """
     Predict by GPS coordinates.
@@ -357,21 +403,18 @@ class PredictRequest(BaseModel):
     `pickup_datetime` is optional; omit it to default to the current time.
     """
 
-    pickup_longitude:  float
-    pickup_latitude:   float
+    pickup_longitude: float
+    pickup_latitude: float
     dropoff_longitude: float
-    dropoff_latitude:  float
-    pickup_datetime:   str | None = None
+    dropoff_latitude: float
+    pickup_datetime: str | None = None
 
     # ── Field validators ──────────────────────────────────────────────────
 
     @field_validator("pickup_longitude")
     @classmethod
     def validate_pickup_longitude(cls, v: float) -> float:
-        if not (
-            NYC_LON_MIN <= v <= NYC_LON_MAX or
-            EWR_LON_MIN <= v <= EWR_LON_MAX
-        ):
+        if not (NYC_LON_MIN <= v <= NYC_LON_MAX or EWR_LON_MIN <= v <= EWR_LON_MAX):
             raise ValueError(
                 f"pickup_longitude {v} is outside the supported area. "
                 f"Supported NYC bounds are {NYC_LON_MIN} to {NYC_LON_MAX}. "
@@ -382,10 +425,7 @@ class PredictRequest(BaseModel):
     @field_validator("dropoff_longitude")
     @classmethod
     def validate_dropoff_longitude(cls, v: float) -> float:
-        if not (
-            NYC_LON_MIN <= v <= NYC_LON_MAX or
-            EWR_LON_MIN <= v <= EWR_LON_MAX
-        ):
+        if not (NYC_LON_MIN <= v <= NYC_LON_MAX or EWR_LON_MIN <= v <= EWR_LON_MAX):
             raise ValueError(
                 f"dropoff_longitude {v} is outside the supported area. "
                 f"Supported NYC bounds are {NYC_LON_MIN} to {NYC_LON_MAX}. "
@@ -396,10 +436,7 @@ class PredictRequest(BaseModel):
     @field_validator("pickup_latitude")
     @classmethod
     def validate_pickup_latitude(cls, v: float) -> float:
-        if not (
-            NYC_LAT_MIN <= v <= NYC_LAT_MAX or
-            EWR_LAT_MIN <= v <= EWR_LAT_MAX
-        ):
+        if not (NYC_LAT_MIN <= v <= NYC_LAT_MAX or EWR_LAT_MIN <= v <= EWR_LAT_MAX):
             raise ValueError(
                 f"pickup_latitude {v} is outside the supported area. "
                 f"Supported NYC bounds are {NYC_LAT_MIN} to {NYC_LAT_MAX}. "
@@ -410,10 +447,7 @@ class PredictRequest(BaseModel):
     @field_validator("dropoff_latitude")
     @classmethod
     def validate_dropoff_latitude(cls, v: float) -> float:
-        if not (
-            NYC_LAT_MIN <= v <= NYC_LAT_MAX or
-            EWR_LAT_MIN <= v <= EWR_LAT_MAX
-        ):
+        if not (NYC_LAT_MIN <= v <= NYC_LAT_MAX or EWR_LAT_MIN <= v <= EWR_LAT_MAX):
             raise ValueError(
                 f"dropoff_latitude {v} is outside the supported area. "
                 f"Supported NYC bounds are {NYC_LAT_MIN} to {NYC_LAT_MAX}. "
@@ -433,10 +467,10 @@ class PredictRequest(BaseModel):
     def validate_supported_coordinates(cls, v, info):
         data = info.data
 
-        pickup_longitude  = data.get("pickup_longitude")
-        pickup_latitude   = data.get("pickup_latitude")
+        pickup_longitude = data.get("pickup_longitude")
+        pickup_latitude = data.get("pickup_latitude")
         dropoff_longitude = data.get("dropoff_longitude")
-        dropoff_latitude  = data.get("dropoff_latitude")
+        dropoff_latitude = data.get("dropoff_latitude")
 
         if pickup_longitude is not None and pickup_latitude is not None:
             if not is_supported_location(pickup_latitude, pickup_longitude):
@@ -468,7 +502,7 @@ class PredictRequestByAddress(BaseModel):
     `pickup_datetime` is optional; omit it to default to the current time.
     """
 
-    pickup_address:  str
+    pickup_address: str
     dropoff_address: str
     pickup_datetime: str | None = None
 
@@ -499,10 +533,12 @@ class PredictResponse(BaseModel):
 
     trip_duration_seconds: float
     trip_duration_minutes: float
-    model_version:         str
+    model_version: str
+    latency_ms: float
 
 
 # ── Internal prediction helper ────────────────────────────────────────────────
+
 
 def _run_prediction(
     payload: PredictRequest,
@@ -516,7 +552,7 @@ def _run_prediction(
     from src.features import clean, engineer, get_feature_columns
 
     with model_lock:
-        model   = model_state["model"]
+        model = model_state["model"]
         version = model_state["version"]
 
     if model is None:
@@ -529,13 +565,17 @@ def _run_prediction(
         )
 
     try:
-        df = pd.DataFrame([{
-            "pickup_longitude":  payload.pickup_longitude,
-            "pickup_latitude":   payload.pickup_latitude,
-            "dropoff_longitude": payload.dropoff_longitude,
-            "dropoff_latitude":  payload.dropoff_latitude,
-            "pickup_datetime":   pd.to_datetime(payload.pickup_datetime),
-        }])
+        df = pd.DataFrame(
+            [
+                {
+                    "pickup_longitude": payload.pickup_longitude,
+                    "pickup_latitude": payload.pickup_latitude,
+                    "dropoff_longitude": payload.dropoff_longitude,
+                    "dropoff_latitude": payload.dropoff_latitude,
+                    "pickup_datetime": pd.to_datetime(payload.pickup_datetime),
+                }
+            ]
+        )
 
         df = clean(df)
 
@@ -551,17 +591,27 @@ def _run_prediction(
             )
 
         df = engineer(df)
-        feature_cols   = get_feature_columns()
+        feature_cols = get_feature_columns()
+
+        # ── Latency tracking ─────────────────────────────────────────────
+        # Measure model inference time so performance can be monitored in
+        # local testing, CI runs, and production deployments.
+        start = time.time()
         log_prediction = float(model.predict(df[feature_cols])[0])
-        prediction     = float(np.expm1(log_prediction))
+        latency = time.time() - start
+        logger.info("Prediction latency: %.2f ms", latency * 1000)
+
+        prediction = float(np.expm1(log_prediction))
         # Clamp to realistic taxi trip range: 1 min → 3 hours
-        prediction     = max(60.0, min(prediction, 10_800.0))
+        prediction = max(60.0, min(prediction, 10_800.0))
 
         return PredictResponse(
             trip_duration_seconds=round(prediction, 2),
             trip_duration_minutes=round(prediction / 60, 2),
             model_version=str(version),
+            latency_ms=round(latency * 1000, 2),
         )
+
 
     except HTTPException:
         raise
@@ -583,6 +633,7 @@ def _run_prediction(
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+
 @app.post(
     "/predict",
     response_model=PredictResponse,
@@ -596,6 +647,7 @@ def _run_prediction(
                         "trip_duration_seconds": 847.5,
                         "trip_duration_minutes": 14.12,
                         "model_version": "3",
+                        "latency_ms": 3.42,
                     }
                 }
             },
@@ -654,6 +706,7 @@ def predict(payload: PredictRequest, http_request: Request) -> PredictResponse:
     - Predicted duration is clamped to a realistic range (60 s – 10 800 s).
     - Newark Airport is allowed as a special supported case.
     """
+    logger.info("Incoming request to /predict")
     return _run_prediction(payload, http_request)
 
 
@@ -670,6 +723,7 @@ def predict(payload: PredictRequest, http_request: Request) -> PredictResponse:
                         "trip_duration_seconds": 1523.0,
                         "trip_duration_minutes": 25.38,
                         "model_version": "3",
+                        "latency_ms": 4.42,
                     }
                 }
             },
@@ -690,7 +744,7 @@ def predict(payload: PredictRequest, http_request: Request) -> PredictResponse:
                                     "Did you mean 'Flushing, New York'? "
                                     "Please enter a valid NYC address such as "
                                     '"Times Square, New York" or "JFK Airport, Queens, NY". '
-                                    'For Newark Airport trips, try a specific address such as '
+                                    "For Newark Airport trips, try a specific address such as "
                                     '"Newark Liberty International Airport, Newark, NJ".'
                                 )
                             },
@@ -818,9 +872,7 @@ def predict_by_address(
     responses={
         200: {
             "description": "Service is running",
-            "content": {
-                "application/json": {"example": {"status": "ok"}}
-            },
+            "content": {"application/json": {"example": {"status": "ok"}}},
         }
     },
 )
@@ -844,13 +896,13 @@ def health():
             "content": {
                 "application/json": {
                     "example": {
-                        "model_name":           "group-a1-model",
-                        "version":              "3",
-                        "stage":                "Production",
-                        "trained_at":           1686520800000,
-                        "primary_metric":       "RMSE",
+                        "model_name": "group-a1-model",
+                        "version": "3",
+                        "stage": "Production",
+                        "trained_at": 1686520800000,
+                        "primary_metric": "RMSE",
                         "primary_metric_value": 282.4,
-                        "model_loaded":         True,
+                        "model_loaded": True,
                     }
                 }
             },
@@ -859,7 +911,9 @@ def health():
             "description": "Model not yet loaded",
             "content": {
                 "application/json": {
-                    "example": {"detail": "Model is not loaded. The service may still be starting up."}
+                    "example": {
+                        "detail": "Model is not loaded. The service may still be starting up."
+                    }
                 }
             },
         },
@@ -880,13 +934,13 @@ def model_info():
             )
         metrics = model_state["metrics"]
         return {
-            "model_name":           MODEL_REGISTRY_NAME,
-            "version":              model_state["version"],
-            "stage":                model_state["stage"],
-            "trained_at":           model_state["trained_at"],
-            "primary_metric":       "RMSE",
+            "model_name": MODEL_REGISTRY_NAME,
+            "version": model_state["version"],
+            "stage": model_state["stage"],
+            "trained_at": model_state["trained_at"],
+            "primary_metric": "RMSE",
             "primary_metric_value": metrics.get("primary_metric"),
-            "model_loaded":         True,
+            "model_loaded": True,
         }
 
 
@@ -920,25 +974,25 @@ def coverage():
         ],
         "airports_supported": [
             {
-                "name":    "John F. Kennedy International Airport (JFK)",
+                "name": "John F. Kennedy International Airport (JFK)",
                 "borough": "Queens, NYC",
                 "coordinates": {"latitude": 40.6413, "longitude": -73.7781},
             },
             {
-                "name":    "LaGuardia Airport (LGA)",
+                "name": "LaGuardia Airport (LGA)",
                 "borough": "Queens, NYC",
                 "coordinates": {"latitude": 40.7769, "longitude": -73.8740},
             },
             {
-                "name":    "Newark Liberty International Airport (EWR)",
+                "name": "Newark Liberty International Airport (EWR)",
                 "borough": "Newark, New Jersey",
-                "note":    "Supported as a special-case airport area",
+                "note": "Supported as a special-case airport area",
                 "coordinates": {"latitude": 40.6895, "longitude": -74.1745},
             },
         ],
         "bounding_box": {
             "longitude": {"min": NYC_LON_MIN, "max": NYC_LON_MAX},
-            "latitude":  {"min": NYC_LAT_MIN, "max": NYC_LAT_MAX},
+            "latitude": {"min": NYC_LAT_MIN, "max": NYC_LAT_MAX},
         },
         "data_trained_on": "NYC Yellow Taxi trips — January to June 2016",
         "note": (
@@ -954,11 +1008,7 @@ def coverage():
     responses={
         200: {
             "description": "Reload triggered",
-            "content": {
-                "application/json": {
-                    "example": {"status": "reloading"}
-                }
-            },
+            "content": {"application/json": {"example": {"status": "reloading"}}},
         }
     },
 )
@@ -970,6 +1020,7 @@ def reload_model():
     Called automatically by Cloud Scheduler after a retraining run.
     The current model continues serving requests during the swap.
     """
+
     def _reload() -> None:
         try:
             load_production_model()

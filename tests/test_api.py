@@ -172,6 +172,8 @@ class TestPredictHappyPath:
         assert "trip_duration_seconds" in data
         assert "trip_duration_minutes" in data
         assert "model_version"         in data
+        assert "latency_ms" in data
+        assert data["latency_ms"] >= 0
 
     def test_duration_is_positive(self, client):
         data = client.post("/predict", json=VALID_PREDICT_PAYLOAD).json()
@@ -324,6 +326,8 @@ class TestPredictByAddress:
             }).json()
         assert "trip_duration_seconds" in data
         assert "trip_duration_minutes" in data
+        assert "latency_ms" in data
+        assert data["latency_ms"] >= 0
 
     def test_address_not_found_returns_422(self, client):
         with patch("api.main.geocode_address", return_value=None):
