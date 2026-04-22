@@ -34,7 +34,12 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 
 # ── Config ────────────────────────────────────────────────────────────────────
-MLFLOW_TRACKING_URI = os.environ["MLFLOW_TRACKING_URI"]
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
+
+if not MLFLOW_TRACKING_URI:
+    # Fallback for testing environments (CI/CD)
+    MLFLOW_TRACKING_URI = "http://localhost:5000"
+    
 MODEL_REGISTRY_NAME = os.environ.get("MODEL_REGISTRY_NAME", "group-a1-model")
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
