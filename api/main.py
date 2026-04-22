@@ -849,7 +849,7 @@ def health():
                         "stage":                "Production",
                         "trained_at":           1686520800000,
                         "primary_metric":       "RMSE",
-                        "primary_metric_value": 387.4,
+                        "primary_metric_value": 282.4,
                         "model_loaded":         True,
                     }
                 }
