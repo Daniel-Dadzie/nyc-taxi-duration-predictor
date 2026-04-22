@@ -151,10 +151,12 @@ def main():
             mlflow.log_metric(k, v)
 
         # Use mlflow.xgboost instead of mlflow.sklearn for native XGBoost flavour
+        # model_format="json" avoids the deprecated binary (.ubj) format warning
         mlflow.xgboost.log_model(
             model,
             artifact_path="model",
             registered_model_name=MODEL_REGISTRY_NAME,
+            model_format="json",
         )
 
         run_id = run.info.run_id
