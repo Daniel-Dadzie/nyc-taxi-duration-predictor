@@ -1,0 +1,7 @@
+POST http://127.0.0.1:8000/predict-by-address
+Content-Type: application/json
+ 
+{
+  "pickup_address": "Queens",
+  "dropoff_address": "JFK Airport"
+}

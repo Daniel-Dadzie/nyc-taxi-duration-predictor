@@ -18,11 +18,10 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     """
     Apply all cleaning steps to a raw DataFrame.
     Returns a cleaned DataFrame ready for feature engineering.
-    TODO: implement for Project A
     """
-
-    # Remove impossible passenger counts
-    df = df[(df["passenger_count"] >= 1) & (df["passenger_count"] <= 6)]
+    # Only filter passenger_count if it exists (training only)
+    if "passenger_count" in df.columns:
+        df = df[(df["passenger_count"] >= 1) & (df["passenger_count"] <= 6)]
 
     # Only filter trip_duration if it exists (training only)
     if "trip_duration" in df.columns:
@@ -198,6 +197,5 @@ def get_feature_columns() -> list:
         # Direction
         "going_north", "going_east",
 
-        # Other
-        # "passenger_count"
+         
     ]
