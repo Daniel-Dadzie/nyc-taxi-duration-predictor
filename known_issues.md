@@ -57,6 +57,6 @@ Both ML and Cloud team members should contribute to this file.
 - Would adding external weather data improve RMSE significantly?
 - Would clustering pickup/dropoff zones (e.g. using k-means on coordinates) 
   add useful features?
-- Early stopping never triggered at 2000 rounds — would 3000+ estimators 
+- Early stopping never triggered at 50 rounds — would 5000 estimators 
   further improve RMSE?
 - Should we use a test set evaluation before final model promotion?

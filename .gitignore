@@ -39,3 +39,8 @@ test.csv
 test_split.csv
 train_split.csv
  
+
+#optional
+check_mlflow.py
+check_training.py
+shap_analysis.py

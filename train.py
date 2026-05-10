@@ -54,8 +54,8 @@ def train_model(X_train, y_train, X_val, y_val):
     X_val = X_val.astype("float32")
 
     model = XGBRegressor(
-        n_estimators=2000,
-        learning_rate=0.02,
+        n_estimators=5000,
+        learning_rate=0.01,
         max_depth=9,
         subsample=0.8,
         colsample_bytree=0.7,
@@ -70,6 +70,9 @@ def train_model(X_train, y_train, X_val, y_val):
         max_bin=256,  # caps memory without impacting accuracy
     )
     model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=100)
+    
+    print(f"Best iteration: {model.best_iteration}")
+    print(f"Best validation score: {model.best_score}")
     return model
 
 

@@ -1,10 +1,29 @@
-# Group A1 — Taxi Trip Duration Predictor
+# 🚕 Group A1 — Taxi Trip Duration Predictor
 
-**Organisation:** cloud-ml-internship-2026  
-**Project:** Project A — Taxi Trip Duration Predictor  
-**Competing against:** Group A2 (same project, head-to-head)  
-**Primary metric:** RMSE  
-**Dataset:** NYC Taxi (Kaggle) — January to June 2016  
+<div align="center">
+
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776ab?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![XGBoost 2.0.3](https://img.shields.io/badge/XGBoost-2.0.3-FF6E00?style=flat-square&logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io/)
+[![FastAPI 0.111.0](https://img.shields.io/badge/FastAPI-0.111.0-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![MLflow 2.13.0](https://img.shields.io/badge/MLflow-2.13.0-0194E4?style=flat-square&logo=mlflow&logoColor=white)](https://mlflow.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Cloud Run](https://img.shields.io/badge/Cloud%20Run-Deployed-4285F4?style=flat-square&logo=google-cloud&logoColor=white)](https://cloud.google.com/run)
+
+[![Status: Active](https://img.shields.io/badge/Status-Active-32CD32?style=flat-square)](https://github.com/)
+[![Model Performance: RMSE 279s](https://img.shields.io/badge/Model%20Performance-RMSE%20279s-1976D2?style=flat-square)](./model_card.md)
+[![Dataset: 1.4M+ Samples](https://img.shields.io/badge/Dataset-1.4M%2B%20Samples-FF6B6B?style=flat-square)](https://www.kaggle.com/c/nyc-taxi-trip-duration)
+[![Tests](https://img.shields.io/badge/Tests-Passing-32CD32?style=flat-square)](./tests/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Maintenance: Active](https://img.shields.io/badge/Maintenance-Active-brightgreen?style=flat-square)](https://github.com/)
+
+</div>
+
+<div align="center">
+
+**Organisation:** cloud-ml-internship-2026 | **Project:** Project A | **Competing against:** Group A2  
+**Dataset:** NYC Taxi (Kaggle) — January to June 2016 | **Primary metric:** RMSE  
+
+</div>
 
 ---
 
@@ -21,7 +40,75 @@ This project predicts NYC taxi trip duration in seconds given pickup and dropoff
 
 ---
 
-## Project Structure
+## 📑 Table of Contents
+
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [API Endpoints](#api-endpoints)
+- [Feature Engineering](#feature-engineering)
+- [Data Pipeline](#data-pipeline)
+- [Model Details](#model-details)
+- [Cloud Deployment](#cloud-deployment)
+- [MLflow Integration](#mlflow-integration)
+- [Testing & Validation](#testing--validation)
+- [Dependencies](#dependencies)
+- [Troubleshooting](#troubleshooting)
+- [Resources](#resources)
+
+---
+
+## ⚡ Quick Start
+
+Get the project up and running in 5 minutes:
+
+### 1. Setup environment
+```bash
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# Mac/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 2. Set environment variables
+```bash
+# Windows
+set MLFLOW_TRACKING_URI=https://mlflow-server-662636572351.us-central1.run.app
+set MLFLOW_EXPERIMENT_NAME=project-a-group-a1
+set MODEL_REGISTRY_NAME=group-a1-model
+set DATA_PATH=gs://group-a1-mlflow-artifacts/data/train.csv
+
+# Mac/Linux
+export MLFLOW_TRACKING_URI=https://mlflow-server-662636572351.us-central1.run.app
+export MLFLOW_EXPERIMENT_NAME=project-a-group-a1
+export MODEL_REGISTRY_NAME=group-a1-model
+export DATA_PATH=gs://group-a1-mlflow-artifacts/data/train.csv
+```
+
+> **MLflow server** is hosted on Google Cloud Run — no local server needed.  
+> Artifacts are stored in GCS: `gs://group-a1-mlflow-artifacts/mlflow-artifacts`
+
+### 3. Train the model
+```bash
+python train.py
+```
+
+### 4. Start the API
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### 5. Test the API
+Open your browser and go to: **http://127.0.0.1:8000/docs**
+
+---
+
+## 📦 Project Structure
 
 ```
 group-a1/
@@ -49,7 +136,7 @@ group-a1/
 
 ---
 
-## Getting Started
+## 📖 Getting Started
 
 ### Prerequisites
 
@@ -109,7 +196,7 @@ curl http://localhost:8080/health
 
 ---
 
-## API Endpoints
+## 🔌 API Endpoints
 
 The prediction API (FastAPI) exposes **6 endpoints**:
 
@@ -207,7 +294,7 @@ Reloads the latest Production model without container restart. Called automatica
 
 ---
 
-## Feature Engineering
+## 🛠️ Feature Engineering
 
 All **40 engineered features** are defined in `src/features.py` and shared between `train.py` and `api/main.py`:
 
@@ -250,7 +337,7 @@ See `model_card.md` for complete feature documentation with coordinates and anal
 
 ---
 
-## Data Pipeline
+## 📊 Data Pipeline
 
 ### Cleaning (`src/features.py:clean()`)
 - Filters passenger count to [1, 6] range (removes 0, 7-9 as impossible)
@@ -281,7 +368,7 @@ See `model_card.md` for complete feature documentation with coordinates and anal
 
 ---
 
-## Model Details
+## 🤖 Model Details
 
 **Algorithm:** XGBoost Regressor (Gradient Boosted Trees)
 
@@ -317,7 +404,7 @@ See `known_issues.md` for:
 
 ---
 
-## Cloud Deployment
+## ☁️ Cloud Deployment
 
 The `infra/` folder contains all cloud infrastructure configuration:
 - **cloud_run/**: Cloud Run service definitions for the prediction API
@@ -329,7 +416,7 @@ See `infra/README.md` for Cloud team setup instructions.
 
 ---
 
-## MLflow Integration
+## 📈 MLflow Integration
 
 - **Tracking URI**: Points to Cloud Run MLflow server (set via `MLFLOW_TRACKING_URI`)
 - **Experiment:** `project-a-group-a1`
@@ -345,7 +432,7 @@ Then open `http://localhost:5000` and navigate to the experiment.
 
 ---
 
-## Testing & Validation
+## ✅ Testing & Validation
 
 ### Manual API testing
 
@@ -386,7 +473,7 @@ curl http://localhost:8080/health
 
 ---
 
-## Dependencies
+## 📚 Dependencies
 
 All dependencies pinned in `requirements.txt`:
 - **fastapi==0.111.0** — Web framework
@@ -402,7 +489,7 @@ All dependencies pinned in `requirements.txt`:
 
 ---
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
@@ -414,7 +501,7 @@ All dependencies pinned in `requirements.txt`:
 
 ---
 
-## Next Steps
+## 🚀 Next Steps
 
 1. **Cloud team:** Deploy infrastructure using `infra/setup.sh`
 2. **ML team:** Train initial model with `python train.py` after data ingestion is ready
@@ -431,61 +518,11 @@ All dependencies pinned in `requirements.txt`:
 - [Infrastructure](infra/README.md) — Cloud deployment guide
 - [FastAPI Docs](http://localhost:8080/docs) — Interactive API documentation (when running locally)
 
-
-## Quick Start
-
-### 1. Setup environment
-```bash
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# Mac/Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-### 2. Set environment variables
-```bash
-# Windows
-set MLFLOW_TRACKING_URI=https://mlflow-server-662636572351.us-central1.run.app
-set MLFLOW_EXPERIMENT_NAME=project-a-group-a1
-set MODEL_REGISTRY_NAME=group-a1-model
-set DATA_PATH=gs://group-a1-mlflow-artifacts/data/train.csv
-
-# Mac/Linux
-export MLFLOW_TRACKING_URI=https://mlflow-server-662636572351.us-central1.run.app
-export MLFLOW_EXPERIMENT_NAME=project-a-group-a1
-export MODEL_REGISTRY_NAME=group-a1-model
-export DATA_PATH=gs://group-a1-mlflow-artifacts/data/train.csv
-```
-
-> **MLflow server** is hosted on Google Cloud Run — no local server needed.  
-> Artifacts are stored in GCS: `gs://group-a1-mlflow-artifacts/mlflow-artifacts`
-
-### 3. Train the model
-```bash
-python train.py
-```
-
-### 4. Start the API
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000
-```
-
-### 5. Test the API
-Open your browser and go to:
-http://127.0.0.1:8000/docs
-
-
 ---
 
-## API Contract
+## 📋 API Contract
 
 > **Status: DRAFT — must be finalised and signed by both ML and Cloud leads by end of Week 1**
----
 
 ### POST /predict
 Predicts NYC taxi trip duration given pickup and dropoff details.
@@ -510,17 +547,47 @@ Predicts NYC taxi trip duration given pickup and dropoff details.
   "trip_duration_minutes": 11.19,
   "model_version": "6"
 }
-
-
 ```
 
 **Validation rules:**
 - `pickup_longitude` and `dropoff_longitude`: must be between -74.25 and -73.70
 - `pickup_latitude` and `dropoff_latitude`: must be between 40.49 and 40.92
- 
 - `pickup_datetime`: format must be "YYYY-MM-DD HH:MM:SS"
 
 **Error responses:**
+
+---
+
+## 💬 Getting Help
+
+- **📖 Documentation:** Check [model_card.md](model_card.md) and [known_issues.md](known_issues.md)
+- **🐛 Issues:** Found a bug? Check [Troubleshooting](#troubleshooting) section first
+- **❓ Questions:** Review existing documentation or contact the Cloud team
+- **📧 Contact:** Reach out to the ML or Cloud leads
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see LICENSE file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Dataset:** [NYC Taxi (Kaggle)](https://www.kaggle.com/c/nyc-taxi-trip-duration)
+- **MLflow Team:** For the excellent model tracking platform
+- **Cloud Team:** For infrastructure support and deployment guidance
+
+---
+
+<div align="center">
+
+**Made with ❤️ by Group A1 — Cloud ML Internship 2026**
+
+[📚 Documentation](#-resources) • [🐛 Report Issue](#-getting-help) • [📈 View Model](model_card.md) • [⚙️ Infrastructure](infra/README.md)
+
+</div>
 - `422` — Invalid input (coordinates out of bounds, invalid passenger count, invalid vendor_id, or invalid pickup_datetime format)
 - `500` — Internal prediction error (generic response)
 - `503` — Model not loaded
